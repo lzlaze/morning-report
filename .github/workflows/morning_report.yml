@@ -1,0 +1,47 @@
+name: Morning Futures Report
+
+on:
+  schedule:
+    # 8:30 AM ET = 13:30 UTC (during EST) / 12:30 UTC (during EDT)
+    # Running at both to cover daylight saving time transitions
+    # Primary: 13:30 UTC (EST / Nov–Mar)
+    - cron: '30 13 * * 1-5'
+    # Secondary: 12:30 UTC (EDT / Mar–Nov) — comment one out based on season
+    # - cron: '30 12 * * 1-5'
+  workflow_dispatch:  # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to push the updated dashboard to GitHub Pages
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install yfinance requests anthropic pytz
+
+      - name: Generate Morning Report
+        env:
+          GMAIL_USER:         ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS:     ${{ secrets.GMAIL_APP_PASS }}
+          TO_EMAIL:           ${{ secrets.TO_EMAIL }}
+          ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
+          DASHBOARD_URL:      ${{ secrets.DASHBOARD_URL }}
+        run: |
+          python generate_report.py
+
+      - name: Deploy dashboard to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          keep_files: false
