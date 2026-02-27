@@ -2,38 +2,25 @@
 """
 Morning Futures Trading Report Generator
 Pulls pre-market data, earnings, economic calendar, and generates AI analysis.
-Includes trade setup section for ES, YM, and custom watchlist tickers.
 """
 
 import os
 import json
-import re
 import smtplib
 import requests
 import yfinance as yf
-from datetime import datetime, timedelta
+from datetime import datetime, date
 import pytz
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import anthropic
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
-GMAIL_USER     = os.environ["GMAIL_USER"]
-GMAIL_APP_PASS = os.environ["GMAIL_APP_PASS"]
-TO_EMAIL       = os.environ["TO_EMAIL"]
+GMAIL_USER     = os.environ["GMAIL_USER"]        # your.email@gmail.com
+GMAIL_APP_PASS = os.environ["GMAIL_APP_PASS"]    # Gmail App Password (not regular password)
+TO_EMAIL       = os.environ["TO_EMAIL"]          # where to send (can be same as GMAIL_USER)
 ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
-DASHBOARD_URL  = os.environ.get("DASHBOARD_URL", "")
-
-# ── WATCHLIST ──────────────────────────────────────────────────────────────────
-# Add any tickers here to include them in the setup section
-# Format: {"ticker": "SYMBOL", "name": "Display Name", "type": "stock/futures/etf"}
-WATCHLIST = [
-    # Default: ES and YM always included via futures data
-    # Add your tickers below — examples:
-    # {"ticker": "NVDA", "name": "NVIDIA",        "type": "stock"},
-    # {"ticker": "AAPL", "name": "Apple",          "type": "stock"},
-    # {"ticker": "SPY",  "name": "SPY ETF",        "type": "etf"},
-]
+DASHBOARD_URL  = os.environ.get("DASHBOARD_URL", "")  # GitHub Pages URL after setup
 
 ET = pytz.timezone("America/New_York")
 TODAY = datetime.now(ET).strftime("%A, %B %d, %Y")
@@ -41,9 +28,9 @@ TODAY_SHORT = datetime.now(ET).strftime("%Y-%m-%d")
 
 # ── FUTURES TICKERS ────────────────────────────────────────────────────────────
 FUTURES = {
-    "ES": {"ticker": "ES=F",   "name": "S&P 500 (ES)",  "index": "^GSPC"},
-    "YM": {"ticker": "YM=F",   "name": "Dow (YM)",      "index": "^DJI"},
-    "NQ": {"ticker": "NQ=F",   "name": "Nasdaq (NQ)",   "index": "^IXIC"},
+    "ES": {"ticker": "ES=F",  "name": "S&P 500 (ES)",  "index": "^GSPC"},
+    "YM": {"ticker": "YM=F",  "name": "Dow (YM)",       "index": "^DJI"},
+    "NQ": {"ticker": "NQ=F",  "name": "Nasdaq (NQ)",    "index": "^IXIC"},
     "RTY": {"ticker": "RTY=F", "name": "Russell (RTY)", "index": "^RUT"},
     "VIX": {"ticker": "^VIX",  "name": "VIX",           "index": None},
     "CL":  {"ticker": "CL=F",  "name": "Crude Oil",     "index": None},
@@ -65,6 +52,7 @@ def get_futures_data():
             if not hist.empty:
                 current = float(hist["Close"].iloc[-1])
                 prev_close = float(hist["Close"].iloc[0])
+                # Try to get a cleaner prev close
                 daily = t.history(period="5d", interval="1d")
                 if len(daily) >= 2:
                     prev_close = float(daily["Close"].iloc[-2])
@@ -72,90 +60,15 @@ def get_futures_data():
                 pct = (change / prev_close) * 100
                 data[key] = {
                     "name": info["name"],
-                    "ticker": info["ticker"],
                     "price": current,
                     "change": change,
                     "pct": pct,
                     "direction": "▲" if change >= 0 else "▼",
                     "color": "#00d4a0" if change >= 0 else "#ff4d6d",
-                    "prev_close": prev_close,
                 }
         except Exception as e:
-            data[key] = {"name": info["name"], "ticker": info["ticker"],
-                          "price": 0, "change": 0, "pct": 0,
-                          "direction": "—", "color": "#888", "prev_close": 0, "error": str(e)}
-    return data
-
-
-def get_key_levels(ticker_symbol, current_price, prev_close):
-    """
-    Pull OHLC data and calculate key levels:
-    - Previous day high/low
-    - Overnight (Globex) high/low
-    - Prior week high/low
-    - Round number proximity
-    - Approx VWAP (prior session)
-    """
-    levels = {}
-    try:
-        t = yf.Ticker(ticker_symbol)
-
-        # Previous day OHLC
-        daily = t.history(period="10d", interval="1d")
-        if len(daily) >= 2:
-            levels["pdh"] = float(daily["High"].iloc[-2])
-            levels["pdl"] = float(daily["Low"].iloc[-2])
-            levels["pd_close"] = float(daily["Close"].iloc[-2])
-
-        # Prior week high/low (last 5 trading days)
-        if len(daily) >= 6:
-            week_slice = daily.iloc[-6:-1]
-            levels["pwh"] = float(week_slice["High"].max())
-            levels["pwl"] = float(week_slice["Low"].min())
-
-        # Overnight/Globex range (last 24h intraday)
-        intra = t.history(period="2d", interval="5m")
-        if not intra.empty:
-            levels["overnight_high"] = float(intra["High"].max())
-            levels["overnight_low"] = float(intra["Low"].min())
-
-        # Nearest round numbers above and below
-        if current_price > 0:
-            magnitude = 100 if current_price > 1000 else 50 if current_price > 500 else 10
-            levels["round_above"] = (int(current_price / magnitude) + 1) * magnitude
-            levels["round_below"] = int(current_price / magnitude) * magnitude
-
-        levels["current"] = current_price
-        levels["prev_close"] = prev_close
-
-    except Exception as e:
-        levels["error"] = str(e)
-
-    return levels
-
-
-def get_watchlist_data():
-    """Pull pre-market data for watchlist tickers."""
-    data = []
-    for item in WATCHLIST:
-        try:
-            t = yf.Ticker(item["ticker"])
-            daily = t.history(period="5d", interval="1d")
-            if len(daily) >= 2:
-                current = float(daily["Close"].iloc[-1])
-                prev = float(daily["Close"].iloc[-2])
-                pct = ((current - prev) / prev) * 100
-                data.append({
-                    "ticker": item["ticker"],
-                    "name": item["name"],
-                    "type": item["type"],
-                    "price": current,
-                    "pct": pct,
-                    "prev_close": prev,
-                    "color": "#00d4a0" if pct >= 0 else "#ff4d6d",
-                })
-        except Exception:
-            pass
+            data[key] = {"name": info["name"], "price": 0, "change": 0, "pct": 0,
+                          "direction": "—", "color": "#888", "error": str(e)}
     return data
 
 
@@ -168,7 +81,7 @@ def get_earnings_today():
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             rows = r.json().get("data", {}).get("rows", []) or []
-            for row in rows[:20]:
+            for row in rows[:20]:  # top 20
                 earnings.append({
                     "symbol": row.get("symbol", ""),
                     "name": row.get("name", ""),
@@ -179,15 +92,16 @@ def get_earnings_today():
                     "surprise": row.get("surprise", "—"),
                 })
     except Exception as e:
-        earnings.append({"symbol": "ERROR", "name": str(e), "time": "",
+        earnings.append({"symbol": "ERROR", "name": str(e), "time": "", 
                           "eps_est": "", "eps_actual": "", "rev_est": "", "surprise": ""})
     return earnings
 
 
 def get_economic_calendar():
-    """Pull today's economic events."""
+    """Pull today's economic events from Trading Economics or fallback."""
     events = []
     try:
+        # Primary: Alpha Vantage economic calendar (free tier)
         url = "https://www.alphavantage.co/query?function=ECONOMIC_CALENDAR&apikey=demo"
         r = requests.get(url, timeout=10)
         if r.status_code == 200:
@@ -207,9 +121,10 @@ def get_economic_calendar():
     except Exception:
         pass
 
+    # Hardcoded high-impact recurring events as fallback context
     if not events:
         events = [{"time": "8:30 AM ET", "event": "Check BLS.gov for today's scheduled releases",
-                   "actual": "—", "forecast": "—", "previous": "—",
+                   "actual": "—", "forecast": "—", "previous": "—", 
                    "impact": "—", "impact_color": "#888"}]
     return events
 
@@ -244,6 +159,7 @@ def generate_ai_analysis(futures_data, earnings, econ_events, sectors):
     """Call Claude to write the contextual morning briefing."""
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
 
+    # Build context string
     futures_str = "\n".join([
         f"  {v['name']}: {v['direction']} {v['pct']:+.2f}% (${v['price']:,.2f})"
         for v in futures_data.values() if v.get('price', 0) > 0
@@ -258,9 +174,13 @@ def generate_ai_analysis(futures_data, earnings, econ_events, sectors):
         for e in econ_events
     ]) or "  No major economic events today"
 
-    sector_str = "\n".join([f"  {s['name']}: {s['pct']:+.2f}%" for s in sectors[:5]])
+    sector_str = "\n".join([
+        f"  {s['name']}: {s['pct']:+.2f}%" for s in sectors[:5]
+    ])
 
     prompt = f"""You are a professional futures trading desk analyst writing a pre-market morning briefing for a trader who primarily trades ES (S&P 500 futures) and YM (Dow futures). Today is {TODAY}.
+
+Here is this morning's data:
 
 FUTURES PRE-MARKET:
 {futures_str}
@@ -278,232 +198,32 @@ Write a concise, high-signal morning briefing with these sections:
 
 1. **OVERNIGHT SUMMARY** (2-3 sentences): What happened overnight. Key moves, any geopolitical or macro catalysts.
 
-2. **ES vs YM DIVERGENCE ANALYSIS**: Are ES and YM moving together or diverging? Explain WHY based on index composition (tech is ~30% of SPX, industrials/financials dominate the Dow). If there's notable divergence, name the likely cause.
+2. **ES vs YM DIVERGENCE ANALYSIS**: Are ES and YM moving together or diverging? Explain WHY based on index composition (tech is ~30% of SPX, industrials/financials dominate the Dow). If there's notable divergence, name the likely cause (e.g., a tech earnings miss hitting NQ and ES harder while YM holds up).
 
-3. **EARNINGS IMPACT**: Which earnings reports matter most for ES and YM? Rate overall impact: 🔴 HIGH / 🟡 MEDIUM / 🟢 LOW.
+3. **EARNINGS IMPACT** (focus on names that move indices): Which earnings reports matter most for ES and YM? Explain sector weighting impact. Rate overall earnings impact: 🔴 HIGH / 🟡 MEDIUM / 🟢 LOW.
 
 4. **ECONOMIC DATA IMPACT**: What events today could move futures? Rate each: 🔴 HIGH / 🟡 MEDIUM / 🟢 LOW. Note exact release times.
 
-5. **KNOW BEFORE YOU GO** (3-4 sentences): The single most important thing to watch at the open. What's the dominant theme? Any landmines? What would change your bias?
+5. **KEY LEVELS TO WATCH**: Based on current prices, give rough support/resistance context for ES and YM.
 
-Be direct, specific, write like a seasoned desk analyst. No filler."""
+6. **KNOW BEFORE YOU GO** (3-4 sentences): The single most important thing to watch at the open. What's the dominant theme? Any landmines? What would change your bias?
+
+Be direct, specific, and write like a seasoned desk analyst — not generic AI commentary. Avoid filler phrases. If data is missing, work with what you have."""
 
     message = client.messages.create(
         model="claude-opus-4-6",
-        max_tokens=1200,
+        max_tokens=1500,
         messages=[{"role": "user", "content": prompt}]
     )
     return message.content[0].text
 
 
-def generate_trade_setups(futures_data, key_levels_es, key_levels_ym, watchlist_data, earnings, econ_events):
-    """Call Claude to generate specific trade setups for ES, YM, and watchlist."""
-    client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-
-    def fmt_levels(name, levels, price, pct):
-        if not levels or levels.get("error"):
-            return f"{name}: price={price:.2f} chg={pct:+.2f}% (level data unavailable)"
-        return f"""{name}:
-  Current: {price:,.2f} ({pct:+.2f}%)
-  Prev Close: {levels.get('prev_close', 0):,.2f}
-  PDH: {levels.get('pdh', 0):,.2f} | PDL: {levels.get('pdl', 0):,.2f}
-  Overnight High: {levels.get('overnight_high', 0):,.2f} | Overnight Low: {levels.get('overnight_low', 0):,.2f}
-  Prior Week High: {levels.get('pwh', 0):,.2f} | Prior Week Low: {levels.get('pwl', 0):,.2f}
-  Nearest Round Above: {levels.get('round_above', 0):,.0f} | Below: {levels.get('round_below', 0):,.0f}"""
-
-    es = futures_data.get("ES", {})
-    ym = futures_data.get("YM", {})
-    vix = futures_data.get("VIX", {})
-
-    es_str = fmt_levels("ES (S&P 500 Futures)", key_levels_es, es.get("price", 0), es.get("pct", 0))
-    ym_str = fmt_levels("YM (Dow Futures)", key_levels_ym, ym.get("price", 0), ym.get("pct", 0))
-
-    watchlist_str = ""
-    if watchlist_data:
-        watchlist_str = "\nWATCHLIST:\n" + "\n".join([
-            f"  {w['ticker']} ({w['name']}): ${w['price']:,.2f} ({w['pct']:+.2f}%)"
-            for w in watchlist_data
-        ])
-
-    earnings_context = "\n".join([
-        f"  {e['symbol']}: EPS {e['eps_actual']} vs {e['eps_est']} est | Surprise: {e['surprise']}"
-        for e in earnings[:5] if e.get('symbol') != 'ERROR'
-    ]) or "  None"
-
-    econ_context = "\n".join([
-        f"  [{e['impact']}] {e['time']} {e['event']}"
-        for e in econ_events[:5]
-    ]) or "  None"
-
-    prompt = f"""You are a professional futures trader and analyst generating pre-market trade setups. Today is {TODAY}.
-
-This trader's style:
-- Trades: Breakout/breakdown of key levels, mean reversion/fade the open, structural breaks at VWAP
-- Key levels they use: PDH/PDL, overnight high/low, prior week high/low, round numbers, VWAP
-- Wants: 2 setups per instrument (1 long bias, 1 short bias)
-- Format must be precise and actionable
-
-MARKET DATA:
-{es_str}
-
-{ym_str}
-{watchlist_str}
-
-VIX: {vix.get('price', 0):.2f} ({vix.get('pct', 0):+.2f}%)
-
-EARNINGS THIS MORNING:
-{earnings_context}
-
-ECONOMIC EVENTS TODAY:
-{econ_context}
-
-Generate trade setups in this EXACT JSON format. Return ONLY valid JSON, no other text:
-
-{{
-  "setups": [
-    {{
-      "instrument": "ES",
-      "bias": "LONG",
-      "setup_type": "Breakout / Mean Reversion / VWAP Reclaim / Fade",
-      "trigger": "Specific price level and condition to enter",
-      "target1": 0000.00,
-      "target2": 0000.00,
-      "stop": 0000.00,
-      "pts_risk": 00.00,
-      "pts_t1": 00.00,
-      "pts_t2": 00.00,
-      "rr1": "1:0.0",
-      "rr2": "1:0.0",
-      "condition": "What must happen for this setup to be valid (e.g. NQ must confirm, hold above PDH on 5min close)",
-      "invalidated_by": "What price action kills this setup",
-      "confidence": "HIGH / MEDIUM / LOW",
-      "confidence_color": "#00d4a0 or #ffd166 or #ff4d6d",
-      "rationale": "2-3 sentence explanation of why this setup makes sense today given the data"
-    }},
-    {{
-      "instrument": "ES",
-      "bias": "SHORT",
-      "setup_type": "...",
-      "trigger": "...",
-      "target1": 0000.00,
-      "target2": 0000.00,
-      "stop": 0000.00,
-      "pts_risk": 00.00,
-      "pts_t1": 00.00,
-      "pts_t2": 00.00,
-      "rr1": "1:0.0",
-      "rr2": "1:0.0",
-      "condition": "...",
-      "invalidated_by": "...",
-      "confidence": "HIGH / MEDIUM / LOW",
-      "confidence_color": "#00d4a0 or #ffd166 or #ff4d6d",
-      "rationale": "..."
-    }},
-    {{
-      "instrument": "YM",
-      "bias": "LONG",
-      ...same fields...
-    }},
-    {{
-      "instrument": "YM",
-      "bias": "SHORT",
-      ...same fields...
-    }}
-  ]
-}}
-
-Rules:
-- Every price must be a real number based on the actual data provided, not a placeholder
-- Risk/reward must be mathematically correct
-- Setup types must match this trader's actual style: breakout, fade, VWAP structural break, or mean reversion
-- Confidence should reflect VIX level, earnings uncertainty, and economic data risk
-- If a high-impact economic event is scheduled (e.g. CPI at 8:30), note that in the condition field
-- Be specific — "reclaim of 5412 on a 5-minute close" not "price goes up"
-"""
-
-    message = client.messages.create(
-        model="claude-opus-4-6",
-        max_tokens=2000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    raw = message.content[0].text.strip()
-    # Strip markdown code fences if present
-    raw = re.sub(r'^```json\s*', '', raw)
-    raw = re.sub(r'^```\s*', '', raw)
-    raw = re.sub(r'\s*```$', '', raw)
-
-    try:
-        return json.loads(raw)
-    except Exception:
-        return {"setups": [], "error": raw[:500]}
-
-
 # ── HTML GENERATION ────────────────────────────────────────────────────────────
 
-def build_setup_cards_html(setups_data):
-    """Build HTML for the trade setup cards."""
-    if not setups_data or not setups_data.get("setups"):
-        return '<div class="setup-error">Setup generation unavailable — check API logs.</div>'
-
-    cards_html = ""
-    for s in setups_data["setups"]:
-        bias = s.get("bias", "")
-        bias_color = "#00d4a0" if bias == "LONG" else "#ff4d6d"
-        bias_bg = "rgba(0,212,160,0.08)" if bias == "LONG" else "rgba(255,77,109,0.08)"
-        conf_color = s.get("confidence_color", "#ffd166")
-        instrument = s.get("instrument", "")
-
-        cards_html += f"""
-        <div class="setup-card" style="border-color:{bias_color}20;background:{bias_bg}">
-          <div class="setup-header">
-            <div class="setup-instrument">{instrument}</div>
-            <div class="setup-bias" style="color:{bias_color};border-color:{bias_color}40;background:{bias_color}15">{bias}</div>
-            <div class="setup-type-badge">{s.get('setup_type','')}</div>
-            <div class="setup-conf" style="color:{conf_color}">● {s.get('confidence','')}</div>
-          </div>
-
-          <div class="setup-trigger">
-            <span class="setup-label">TRIGGER</span>
-            <span class="setup-value">{s.get('trigger','—')}</span>
-          </div>
-
-          <div class="setup-levels">
-            <div class="level-box level-target">
-              <div class="level-label">T1</div>
-              <div class="level-price">{s.get('target1',0):,.2f}</div>
-              <div class="level-pts" style="color:#00d4a0">+{s.get('pts_t1',0):.1f} pts</div>
-              <div class="level-rr">{s.get('rr1','—')}</div>
-            </div>
-            <div class="level-box level-target">
-              <div class="level-label">T2</div>
-              <div class="level-price">{s.get('target2',0):,.2f}</div>
-              <div class="level-pts" style="color:#00d4a0">+{s.get('pts_t2',0):.1f} pts</div>
-              <div class="level-rr">{s.get('rr2','—')}</div>
-            </div>
-            <div class="level-box level-stop">
-              <div class="level-label">STOP</div>
-              <div class="level-price">{s.get('stop',0):,.2f}</div>
-              <div class="level-pts" style="color:#ff4d6d">-{s.get('pts_risk',0):.1f} pts</div>
-              <div class="level-rr">risk</div>
-            </div>
-          </div>
-
-          <div class="setup-condition">
-            <span class="setup-label">CONDITION</span> {s.get('condition','—')}
-          </div>
-          <div class="setup-invalidated">
-            <span class="setup-label" style="color:#ff4d6d">INVALIDATED</span> {s.get('invalidated_by','—')}
-          </div>
-          <div class="setup-rationale">{s.get('rationale','')}</div>
-        </div>"""
-
-    return cards_html
-
-
-def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_data):
+def build_html(futures_data, earnings, econ_events, sectors, analysis):
     """Build the full HTML dashboard."""
 
+    # Futures cards HTML
     priority_keys = ["ES", "YM", "NQ", "VIX", "CL", "GC", "ZB"]
     futures_cards = ""
     for key in priority_keys:
@@ -519,6 +239,7 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
             <div class="futures-change" style="color:{f['color']}">{f['direction']} {pct_str}</div>
         </div>"""
 
+    # Earnings table rows
     earnings_rows = ""
     for e in earnings[:15]:
         surprise_color = "#00d4a0" if str(e.get('surprise','—')).startswith('+') else "#ff4d6d" if str(e.get('surprise','—')).startswith('-') else "#ccc"
@@ -531,9 +252,11 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
             <td>{e['eps_actual']}</td>
             <td style="color:{surprise_color}">{e['surprise']}</td>
         </tr>"""
+
     if not earnings_rows:
         earnings_rows = '<tr><td colspan="6" class="empty">No major earnings scheduled today</td></tr>'
 
+    # Economic events rows
     econ_rows = ""
     for e in econ_events:
         econ_rows += f"""
@@ -545,9 +268,11 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
             <td>{e['actual']}</td>
             <td>{e['previous']}</td>
         </tr>"""
+
     if not econ_rows:
         econ_rows = '<tr><td colspan="6" class="empty">No major economic events today</td></tr>'
 
+    # Sector bars
     sector_bars = ""
     max_abs = max((abs(s['pct']) for s in sectors), default=1)
     for s in sectors:
@@ -561,14 +286,14 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
             <div class="sector-pct" style="color:{s['color']}">{s['pct']:+.2f}%</div>
         </div>"""
 
+    # Convert analysis markdown to basic HTML
+    analysis_html = analysis.replace('\n\n', '</p><p>').replace('\n', '<br>').replace('**', '<strong>', 1)
+    # Simple bold conversion
+    import re
     analysis_html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', analysis)
     analysis_html = analysis_html.replace('\n\n', '</p><p>').replace('\n', '<br>')
     analysis_html = f"<p>{analysis_html}</p>"
 
-    # Escape analysis for safe JS string embedding
-    analysis_text_for_js = analysis.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
-
-    setup_cards_html = build_setup_cards_html(setups_data)
     generated_at = datetime.now(ET).strftime("%I:%M %p ET")
 
     return f"""<!DOCTYPE html>
@@ -605,16 +330,25 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
     line-height: 1.6;
     min-height: 100vh;
   }}
+  /* Grid noise texture overlay */
   body::before {{
     content: '';
     position: fixed;
     inset: 0;
-    background-image: repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px), repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px);
+    background-image: repeating-linear-gradient(
+      0deg, transparent, transparent 40px,
+      rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px
+    ), repeating-linear-gradient(
+      90deg, transparent, transparent 40px,
+      rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px
+    );
     pointer-events: none;
     z-index: 0;
   }}
+
   .container {{ max-width: 1200px; margin: 0 auto; padding: 0 24px 60px; position: relative; z-index: 1; }}
 
+  /* ── HEADER ── */
   header {{
     border-bottom: 1px solid var(--border-bright);
     padding: 28px 0 20px;
@@ -652,8 +386,12 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
     margin-right: 6px;
     animation: pulse 2s ease-in-out infinite;
   }}
-  @keyframes pulse {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.3; }} }}
+  @keyframes pulse {{
+    0%, 100% {{ opacity: 1; }}
+    50% {{ opacity: 0.3; }}
+  }}
 
+  /* ── SECTION TITLES ── */
   .section-title {{
     font-family: var(--mono);
     font-size: 11px;
@@ -666,7 +404,7 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
     border-bottom: 1px solid var(--border);
   }}
 
-  /* FUTURES STRIP */
+  /* ── FUTURES STRIP ── */
   .futures-strip {{
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -681,19 +419,39 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
     transition: border-color 0.2s;
   }}
   .futures-card:hover {{ border-color: var(--border-bright); }}
-  .futures-name {{ font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; }}
-  .futures-price {{ font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }}
-  .futures-change {{ font-family: var(--mono); font-size: 13px; font-weight: 600; }}
+  .futures-name {{
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }}
+  .futures-price {{
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+  }}
+  .futures-change {{
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+  }}
 
-  /* MAIN GRID */
+  /* ── MAIN GRID ── */
   .main-grid {{
     display: grid;
     grid-template-columns: 1fr 300px;
     gap: 24px;
     margin-bottom: 24px;
   }}
-  @media (max-width: 900px) {{ .main-grid {{ grid-template-columns: 1fr; }} }}
+  @media (max-width: 900px) {{
+    .main-grid {{ grid-template-columns: 1fr; }}
+  }}
 
+  /* ── AI ANALYSIS PANEL ── */
   .analysis-panel {{
     background: var(--surface);
     border: 1px solid var(--border);
@@ -704,136 +462,47 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
   .analysis-panel strong {{ color: var(--text-bright); }}
   .analysis-panel p:last-child {{ margin-bottom: 0; }}
 
+  /* ── SECTOR PANEL ── */
   .sector-panel {{
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 20px;
   }}
-  .sector-row {{ display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }}
-  .sector-label {{ font-size: 12px; color: var(--text-dim); width: 90px; flex-shrink: 0; font-family: var(--mono); }}
-  .sector-bar-wrap {{ flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }}
-  .sector-bar {{ height: 100%; border-radius: 3px; }}
-  .sector-pct {{ font-family: var(--mono); font-size: 12px; font-weight: 600; width: 56px; text-align: right; }}
-
-  /* TRADE SETUPS */
-  .setups-grid {{
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
-    gap: 16px;
-    margin-bottom: 32px;
-  }}
-  .setup-card {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 20px;
-    transition: border-color 0.2s;
-  }}
-  .setup-header {{
+  .sector-row {{
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 14px;
-    flex-wrap: wrap;
-  }}
-  .setup-instrument {{
-    font-family: var(--mono);
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-bright);
-  }}
-  .setup-bias {{
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 4px;
-    border: 1px solid;
-    letter-spacing: 0.08em;
-  }}
-  .setup-type-badge {{
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text-dim);
-    background: var(--border);
-    padding: 3px 8px;
-    border-radius: 4px;
-    letter-spacing: 0.05em;
-  }}
-  .setup-conf {{
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 600;
-    margin-left: auto;
-  }}
-  .setup-trigger {{
-    background: rgba(77,159,255,0.06);
-    border: 1px solid rgba(77,159,255,0.2);
-    border-radius: 6px;
-    padding: 10px 14px;
-    margin-bottom: 14px;
-    font-size: 13px;
-  }}
-  .setup-label {{
-    font-family: var(--mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--text-dim);
-    margin-right: 8px;
-    text-transform: uppercase;
-  }}
-  .setup-value {{ color: var(--text-bright); }}
-  .setup-levels {{
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 12px;
-  }}
-  .level-box {{
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px;
-    text-align: center;
-  }}
-  .level-label {{ font-family: var(--mono); font-size: 9px; color: var(--text-dim); letter-spacing: 0.1em; margin-bottom: 4px; }}
-  .level-price {{ font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--text-bright); margin-bottom: 2px; }}
-  .level-pts {{ font-family: var(--mono); font-size: 11px; font-weight: 600; margin-bottom: 2px; }}
-  .level-rr {{ font-family: var(--mono); font-size: 10px; color: var(--text-dim); }}
-  .setup-condition {{
-    font-size: 12px;
-    color: var(--text);
-    margin-bottom: 6px;
-    line-height: 1.5;
-  }}
-  .setup-invalidated {{
-    font-size: 12px;
-    color: var(--text-dim);
     margin-bottom: 10px;
-    line-height: 1.5;
   }}
-  .setup-rationale {{
+  .sector-label {{
     font-size: 12px;
     color: var(--text-dim);
-    font-style: italic;
-    line-height: 1.6;
-    border-top: 1px solid var(--border);
-    padding-top: 10px;
-    margin-top: 4px;
+    width: 90px;
+    flex-shrink: 0;
+    font-family: var(--mono);
   }}
-  .setup-error {{
-    color: var(--text-dim);
-    font-style: italic;
-    padding: 20px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 24px;
+  .sector-bar-wrap {{
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }}
+  .sector-bar {{
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }}
+  .sector-pct {{
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    width: 56px;
+    text-align: right;
   }}
 
-  /* TABLES */
+  /* ── TABLES ── */
   .table-panel {{
     background: var(--surface);
     border: 1px solid var(--border);
@@ -843,13 +512,34 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
     overflow-x: auto;
   }}
   table {{ width: 100%; border-collapse: collapse; }}
-  th {{ font-family: var(--mono); font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; padding: 0 12px 10px 0; text-align: left; border-bottom: 1px solid var(--border); }}
-  td {{ padding: 10px 12px 10px 0; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); vertical-align: middle; }}
+  th {{
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0 12px 10px 0;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }}
+  td {{
+    padding: 10px 12px 10px 0;
+    font-size: 13px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }}
   tr:last-child td {{ border-bottom: none; }}
-  .symbol {{ font-family: var(--mono); font-weight: 700; color: var(--text-bright); font-size: 13px; }}
+  .symbol {{
+    font-family: var(--mono);
+    font-weight: 700;
+    color: var(--text-bright);
+    font-size: 13px;
+  }}
   .event-name {{ color: var(--text-bright); }}
   .empty {{ color: var(--text-dim); font-style: italic; padding: 20px 0; }}
 
+  /* ── FOOTER ── */
   footer {{
     border-top: 1px solid var(--border);
     padding-top: 20px;
@@ -857,258 +547,6 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
     font-size: 11px;
     color: var(--text-dim);
     text-align: center;
-  }}
-
-  /* ── AI CHAT WINDOW ── */
-  #chat-fab {{
-    position: fixed;
-    bottom: 28px;
-    right: 28px;
-    width: 54px;
-    height: 54px;
-    background: var(--accent);
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    box-shadow: 0 4px 24px rgba(77,159,255,0.4);
-    transition: transform 0.2s, box-shadow 0.2s;
-  }}
-  #chat-fab:hover {{ transform: scale(1.08); box-shadow: 0 6px 32px rgba(77,159,255,0.55); }}
-  #chat-fab svg {{ width: 24px; height: 24px; fill: white; }}
-
-  #chat-panel {{
-    position: fixed;
-    bottom: 96px;
-    right: 28px;
-    width: 400px;
-    max-height: 560px;
-    background: #0e1118;
-    border: 1px solid var(--border-bright);
-    border-radius: 14px;
-    display: flex;
-    flex-direction: column;
-    z-index: 999;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
-    transform: translateY(20px);
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 0.25s ease, opacity 0.25s ease;
-  }}
-  #chat-panel.open {{
-    transform: translateY(0);
-    opacity: 1;
-    pointer-events: all;
-  }}
-  .chat-header {{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 18px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }}
-  .chat-header-left {{
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }}
-  .chat-header-icon {{
-    width: 28px;
-    height: 28px;
-    background: rgba(77,159,255,0.15);
-    border: 1px solid rgba(77,159,255,0.3);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-  }}
-  .chat-header-title {{
-    font-family: var(--mono);
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text-bright);
-  }}
-  .chat-header-sub {{
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text-dim);
-    margin-top: 1px;
-  }}
-  .chat-close {{
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    font-size: 18px;
-    line-height: 1;
-    padding: 4px;
-    border-radius: 4px;
-    transition: color 0.15s;
-  }}
-  .chat-close:hover {{ color: var(--text-bright); }}
-
-  #chat-messages {{
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-height: 200px;
-  }}
-  #chat-messages::-webkit-scrollbar {{ width: 4px; }}
-  #chat-messages::-webkit-scrollbar-track {{ background: transparent; }}
-  #chat-messages::-webkit-scrollbar-thumb {{ background: var(--border-bright); border-radius: 2px; }}
-
-  .chat-msg {{
-    max-width: 88%;
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-size: 13px;
-    line-height: 1.6;
-    animation: msgIn 0.2s ease;
-  }}
-  @keyframes msgIn {{ from {{ opacity:0; transform:translateY(6px); }} to {{ opacity:1; transform:translateY(0); }} }}
-  .chat-msg.user {{
-    background: rgba(77,159,255,0.12);
-    border: 1px solid rgba(77,159,255,0.2);
-    color: var(--text-bright);
-    align-self: flex-end;
-    font-family: var(--sans);
-  }}
-  .chat-msg.assistant {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    align-self: flex-start;
-    font-family: var(--sans);
-  }}
-  .chat-msg.assistant strong {{ color: var(--text-bright); }}
-  .chat-msg.thinking {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    align-self: flex-start;
-    font-family: var(--mono);
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }}
-  .thinking-dots span {{
-    display: inline-block;
-    width: 5px; height: 5px;
-    background: var(--accent);
-    border-radius: 50%;
-    animation: dot 1.2s ease-in-out infinite;
-  }}
-  .thinking-dots span:nth-child(2) {{ animation-delay: 0.2s; }}
-  .thinking-dots span:nth-child(3) {{ animation-delay: 0.4s; }}
-  @keyframes dot {{ 0%,80%,100% {{ transform:scale(0.6); opacity:0.4; }} 40% {{ transform:scale(1); opacity:1; }} }}
-
-  .chat-suggestions {{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 0 16px 12px;
-  }}
-  .chat-suggest-btn {{
-    background: rgba(77,159,255,0.07);
-    border: 1px solid rgba(77,159,255,0.2);
-    border-radius: 20px;
-    color: var(--accent);
-    font-family: var(--mono);
-    font-size: 10px;
-    padding: 5px 10px;
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-  }}
-  .chat-suggest-btn:hover {{ background: rgba(77,159,255,0.15); }}
-
-  .chat-input-row {{
-    display: flex;
-    gap: 8px;
-    padding: 12px 16px 16px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }}
-  #chat-input {{
-    flex: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-bright);
-    font-family: var(--sans);
-    font-size: 13px;
-    padding: 9px 12px;
-    outline: none;
-    transition: border-color 0.15s;
-    resize: none;
-  }}
-  #chat-input:focus {{ border-color: var(--accent); }}
-  #chat-input::placeholder {{ color: var(--text-dim); }}
-  #chat-send {{
-    background: var(--accent);
-    border: none;
-    border-radius: 8px;
-    color: white;
-    cursor: pointer;
-    padding: 9px 14px;
-    font-family: var(--mono);
-    font-size: 12px;
-    font-weight: 700;
-    transition: opacity 0.15s;
-    flex-shrink: 0;
-  }}
-  #chat-send:hover {{ opacity: 0.85; }}
-  #chat-send:disabled {{ opacity: 0.4; cursor: not-allowed; }}
-
-  #chat-key-prompt {{
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }}
-  #chat-key-prompt p {{
-    font-size: 12px;
-    color: var(--text-dim);
-    font-family: var(--sans);
-    line-height: 1.5;
-  }}
-  #chat-key-input {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-bright);
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 9px 12px;
-    outline: none;
-    width: 100%;
-  }}
-  #chat-key-input:focus {{ border-color: var(--accent); }}
-  #chat-key-save {{
-    background: var(--accent);
-    border: none;
-    border-radius: 8px;
-    color: white;
-    cursor: pointer;
-    padding: 9px 14px;
-    font-family: var(--mono);
-    font-size: 12px;
-    font-weight: 700;
-    width: 100%;
-  }}
-
-  @media (max-width: 480px) {{
-    #chat-panel {{ width: calc(100vw - 32px); right: 16px; bottom: 80px; }}
-    #chat-fab {{ right: 16px; bottom: 16px; }}
   }}
 </style>
 </head>
@@ -1128,29 +566,36 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
 
   <!-- FUTURES STRIP -->
   <div class="section-title">Futures Snapshot</div>
-  <div class="futures-strip">{futures_cards}</div>
+  <div class="futures-strip">
+    {futures_cards}
+  </div>
 
   <!-- MAIN GRID: Analysis + Sectors -->
   <div class="main-grid">
     <div>
       <div class="section-title">AI Morning Briefing</div>
-      <div class="analysis-panel">{analysis_html}</div>
+      <div class="analysis-panel">
+        {analysis_html}
+      </div>
     </div>
     <div>
       <div class="section-title">Sector Performance</div>
-      <div class="sector-panel">{sector_bars}</div>
+      <div class="sector-panel">
+        {sector_bars}
+      </div>
     </div>
   </div>
-
-  <!-- TRADE SETUPS -->
-  <div class="section-title">Trade Setups — ES &amp; YM</div>
-  <div class="setups-grid">{setup_cards_html}</div>
 
   <!-- EARNINGS TABLE -->
   <div class="section-title">Today's Earnings</div>
   <div class="table-panel">
     <table>
-      <thead><tr><th>Symbol</th><th>Company</th><th>Time</th><th>EPS Est</th><th>EPS Actual</th><th>Surprise</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Symbol</th><th>Company</th><th>Time</th>
+          <th>EPS Est</th><th>EPS Actual</th><th>Surprise</th>
+        </tr>
+      </thead>
       <tbody>{earnings_rows}</tbody>
     </table>
   </div>
@@ -1159,7 +604,12 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
   <div class="section-title">Economic Calendar</div>
   <div class="table-panel">
     <table>
-      <thead><tr><th>Time</th><th>Event</th><th>Impact</th><th>Forecast</th><th>Actual</th><th>Previous</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Time</th><th>Event</th><th>Impact</th>
+          <th>Forecast</th><th>Actual</th><th>Previous</th>
+        </tr>
+      </thead>
       <tbody>{econ_rows}</tbody>
     </table>
   </div>
@@ -1170,259 +620,42 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
   </footer>
 
 </div>
-
-<!-- ── AI CHAT WINDOW ── -->
-<button id="chat-fab" onclick="toggleChat()" title="Ask Claude about today's market">
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.07L2 22l4.93-1.37A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-  </svg>
-</button>
-
-<div id="chat-panel">
-  <div class="chat-header">
-    <div class="chat-header-left">
-      <div class="chat-header-icon">📊</div>
-      <div>
-        <div class="chat-header-title">Market Analyst</div>
-        <div class="chat-header-sub">Loaded with today's full report context</div>
-      </div>
-    </div>
-    <button class="chat-close" onclick="toggleChat()">✕</button>
-  </div>
-
-  <div id="chat-key-prompt" style="display:none">
-    <p>Enter your Anthropic API key to enable the chat. It's stored only in your browser — never sent anywhere except directly to Anthropic.</p>
-    <input id="chat-key-input" type="password" placeholder="sk-ant-..." />
-    <button id="chat-key-save" onclick="saveKey()">Save &amp; Start Chatting</button>
-  </div>
-
-  <div id="chat-main" style="display:none; flex-direction:column; flex:1; overflow:hidden">
-    <div id="chat-messages"></div>
-    <div class="chat-suggestions">
-      <button class="chat-suggest-btn" onclick="suggest(this)">Why are ES and YM diverging?</button>
-      <button class="chat-suggest-btn" onclick="suggest(this)">Re-analyze my ES setup</button>
-      <button class="chat-suggest-btn" onclick="suggest(this)">Should I fade this open?</button>
-      <button class="chat-suggest-btn" onclick="suggest(this)">What's moving the market right now?</button>
-    </div>
-    <div class="chat-input-row">
-      <textarea id="chat-input" rows="1" placeholder="Ask anything about today's market..." onkeydown="handleKey(event)"></textarea>
-      <button id="chat-send" onclick="sendMessage()">Send</button>
-    </div>
-  </div>
-</div>
-
-<script>
-// ── MORNING REPORT CONTEXT (injected at generation time) ──
-const MORNING_CONTEXT = `{analysis_text_for_js}`;
-
-const SYSTEM_PROMPT = `You are an expert futures trading analyst embedded in a trader's morning dashboard. Today is {TODAY}.
-
-You have full context from this morning's pre-market report:
-
-${{MORNING_CONTEXT}}
-
-The trader primarily trades ES (S&P 500 futures) and YM (Dow futures). Their style: breakout/breakdown of key levels, mean reversion/fade the open, VWAP structural breaks.
-
-Answer questions concisely and directly — like a sharp desk analyst responding between trades. Be specific with levels and reasoning. If they ask about divergence, reference index composition (tech ~30% of SPX vs industrials/financials in Dow). If they ask about a setup, reference the morning's key levels. Keep responses under 200 words unless a detailed breakdown is genuinely needed.`;
-
-let chatHistory = [];
-let isOpen = false;
-let isLoading = false;
-
-function toggleChat() {{
-  isOpen = !isOpen;
-  const panel = document.getElementById('chat-panel');
-  panel.classList.toggle('open', isOpen);
-  if (isOpen) {{
-    initChat();
-    setTimeout(() => document.getElementById('chat-input')?.focus(), 300);
-  }}
-}}
-
-function initChat() {{
-  const key = localStorage.getItem('anthropic_key');
-  const keyPrompt = document.getElementById('chat-key-prompt');
-  const chatMain = document.getElementById('chat-main');
-  if (!key) {{
-    keyPrompt.style.display = 'flex';
-    chatMain.style.display = 'none';
-  }} else {{
-    keyPrompt.style.display = 'none';
-    chatMain.style.display = 'flex';
-    if (chatHistory.length === 0) addWelcome();
-  }}
-}}
-
-function saveKey() {{
-  const val = document.getElementById('chat-key-input').value.trim();
-  if (!val.startsWith('sk-ant-')) {{
-    alert('That does not look like a valid Anthropic API key (should start with sk-ant-)');
-    return;
-  }}
-  localStorage.setItem('anthropic_key', val);
-  document.getElementById('chat-key-prompt').style.display = 'none';
-  const chatMain = document.getElementById('chat-main');
-  chatMain.style.display = 'flex';
-  if (chatHistory.length === 0) addWelcome();
-}}
-
-function addWelcome() {{
-  addMessage('assistant', "Morning. I've got the full report loaded — futures, setups, earnings, economic calendar. What do you need?");
-}}
-
-function suggest(btn) {{
-  document.getElementById('chat-input').value = btn.textContent;
-  sendMessage();
-}}
-
-function handleKey(e) {{
-  if (e.key === 'Enter' && !e.shiftKey) {{
-    e.preventDefault();
-    sendMessage();
-  }}
-}}
-
-function addMessage(role, content) {{
-  const messages = document.getElementById('chat-messages');
-  const div = document.createElement('div');
-  div.className = `chat-msg ${{role}}`;
-  // Basic markdown: bold
-  div.innerHTML = content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
-  return div;
-}}
-
-function addThinking() {{
-  const messages = document.getElementById('chat-messages');
-  const div = document.createElement('div');
-  div.className = 'chat-msg thinking';
-  div.id = 'thinking-indicator';
-  div.innerHTML = `Analyzing <span class="thinking-dots"><span></span><span></span><span></span></span>`;
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
-}}
-
-function removeThinking() {{
-  const el = document.getElementById('thinking-indicator');
-  if (el) el.remove();
-}}
-
-async function sendMessage() {{
-  const input = document.getElementById('chat-input');
-  const sendBtn = document.getElementById('chat-send');
-  const text = input.value.trim();
-  if (!text || isLoading) return;
-
-  const key = localStorage.getItem('anthropic_key');
-  if (!key) {{ initChat(); return; }}
-
-  input.value = '';
-  input.style.height = 'auto';
-  isLoading = true;
-  sendBtn.disabled = true;
-
-  addMessage('user', text);
-  chatHistory.push({{ role: 'user', content: text }});
-
-  addThinking();
-
-  try {{
-    const response = await fetch('https://api.anthropic.com/v1/messages', {{
-      method: 'POST',
-      headers: {{
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      }},
-      body: JSON.stringify({{
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 600,
-        system: SYSTEM_PROMPT,
-        messages: chatHistory,
-      }}),
-    }});
-
-    removeThinking();
-
-    if (!response.ok) {{
-      const err = await response.json();
-      if (response.status === 401) {{
-        localStorage.removeItem('anthropic_key');
-        addMessage('assistant', 'API key invalid or expired. Click the chat button again to re-enter your key.');
-      }} else {{
-        addMessage('assistant', `Error: ${{err?.error?.message || response.statusText}}`);
-      }}
-      chatHistory.pop();
-    }} else {{
-      const data = await response.json();
-      const reply = data.content[0].text;
-      addMessage('assistant', reply);
-      chatHistory.push({{ role: 'assistant', content: reply }});
-      // Keep history manageable — last 20 messages
-      if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
-    }}
-  }} catch(e) {{
-    removeThinking();
-    addMessage('assistant', 'Network error — check your connection and try again.');
-    chatHistory.pop();
-  }}
-
-  isLoading = false;
-  sendBtn.disabled = false;
-  input.focus();
-}}
-
-// Auto-resize textarea
-document.addEventListener('DOMContentLoaded', () => {{
-  const input = document.getElementById('chat-input');
-  if (input) {{
-    input.addEventListener('input', function() {{
-      this.style.height = 'auto';
-      this.style.height = Math.min(this.scrollHeight, 100) + 'px';
-    }});
-  }}
-}});
-</script>
-
 </body>
 </html>"""
 
 
 # ── EMAIL ──────────────────────────────────────────────────────────────────────
 
-def send_email(html_content, analysis_text, setups_data, dashboard_url):
+def send_email(html_content, analysis_text, dashboard_url):
     """Send the morning report email via Gmail SMTP."""
+
+    # Plain text teaser (first 500 chars of analysis)
+    teaser = analysis_text[:500] + "..."
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"📊 Morning Futures Report — {TODAY}"
     msg["From"] = GMAIL_USER
     msg["To"] = TO_EMAIL
 
-    # Build setup summary for email
-    setup_lines = ""
-    if setups_data and setups_data.get("setups"):
-        for s in setups_data["setups"]:
-            bias_emoji = "🟢" if s.get("bias") == "LONG" else "🔴"
-            setup_lines += f"<div style='margin-bottom:8px'>{bias_emoji} <strong style='color:#eef2ff'>{s.get('instrument')} {s.get('bias')}</strong> — {s.get('trigger','')}<br><span style='color:#5a6480;font-size:12px'>{s.get('setup_type','')} | T1: {s.get('target1',0):,.2f} | Stop: {s.get('stop',0):,.2f} | {s.get('rr1','')}</span></div>"
+    # Plain text fallback
+    text_body = f"Morning Futures Report — {TODAY}\n\n{teaser}\n\nView full dashboard: {dashboard_url}"
 
-    dashboard_link = f'<div style="text-align:center;margin:24px 0"><a href="{dashboard_url}" style="color:#4d9fff;font-family:monospace">View Full Dashboard →</a></div>' if dashboard_url else ""
-
-    text_body = f"Morning Futures Report — {TODAY}\n\nView dashboard: {dashboard_url}"
+    # HTML email body
+    dashboard_link = f'<a href="{dashboard_url}" style="color:#4d9fff">View Live Dashboard →</a>' if dashboard_url else ""
     html_email = f"""
     <div style="background:#0a0c10;padding:32px;font-family:'Courier New',monospace;max-width:680px;margin:0 auto">
       <div style="color:#4d9fff;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px">Pre-Market Intelligence</div>
-      <h1 style="color:#eef2ff;font-size:22px;margin:0 0 4px;font-family:monospace">Morning Futures Report</h1>
+      <h1 style="color:#eef2ff;font-size:22px;margin:0 0 4px">Morning Futures Report</h1>
       <div style="color:#5a6480;font-size:12px;margin-bottom:28px">{TODAY}</div>
-      <div style="background:#111318;border:1px solid #1e2330;border-radius:8px;padding:24px;margin-bottom:20px;color:#c8d0e0;font-family:Georgia,serif;font-size:14px;line-height:1.8">
+      <div style="background:#111318;border:1px solid #1e2330;border-radius:8px;padding:24px;margin-bottom:24px;color:#c8d0e0;font-family:Georgia,serif;font-size:14px;line-height:1.8">
         {analysis_text.replace(chr(10), '<br>')}
       </div>
-      <div style="background:#111318;border:1px solid #1e2330;border-radius:8px;padding:20px;margin-bottom:20px">
-        <div style="color:#4d9fff;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:14px">Trade Setups</div>
-        {setup_lines or '<div style="color:#5a6480">No setups generated</div>'}
+      <div style="text-align:center;margin:24px 0">
+        {dashboard_link}
       </div>
-      {dashboard_link}
-      <div style="color:#3a4060;font-size:11px;text-align:center;margin-top:24px">Not financial advice. For informational purposes only.</div>
+      <div style="color:#3a4060;font-size:11px;text-align:center;margin-top:24px">
+        Not financial advice. For informational purposes only.
+      </div>
     </div>"""
 
     msg.attach(MIMEText(text_body, "plain"))
@@ -1442,15 +675,6 @@ def main():
     print("  → Fetching futures data...")
     futures_data = get_futures_data()
 
-    print("  → Fetching key levels for ES and YM...")
-    es = futures_data.get("ES", {})
-    ym = futures_data.get("YM", {})
-    key_levels_es = get_key_levels("ES=F", es.get("price", 0), es.get("prev_close", 0))
-    key_levels_ym = get_key_levels("YM=F", ym.get("price", 0), ym.get("prev_close", 0))
-
-    print("  → Fetching watchlist data...")
-    watchlist_data = get_watchlist_data()
-
     print("  → Fetching earnings calendar...")
     earnings = get_earnings_today()
 
@@ -1460,22 +684,21 @@ def main():
     print("  → Fetching sector data...")
     sectors = get_sector_snapshot()
 
-    print("  → Generating AI morning briefing...")
+    print("  → Generating AI analysis...")
     analysis = generate_ai_analysis(futures_data, earnings, econ_events, sectors)
 
-    print("  → Generating trade setups...")
-    setups_data = generate_trade_setups(futures_data, key_levels_es, key_levels_ym, watchlist_data, earnings, econ_events)
-
     print("  → Building HTML dashboard...")
-    html = build_html(futures_data, earnings, econ_events, sectors, analysis, setups_data)
+    html = build_html(futures_data, earnings, econ_events, sectors, analysis)
 
+    # Save dashboard file
     os.makedirs("docs", exist_ok=True)
     with open("docs/index.html", "w") as f:
         f.write(html)
     print("  → Dashboard saved to docs/index.html")
 
+    # Send email
     print("  → Sending email...")
-    send_email(html, analysis, setups_data, DASHBOARD_URL)
+    send_email(html, analysis, DASHBOARD_URL)
 
     print("✅ Morning report complete!")
 
