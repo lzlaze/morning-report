@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morning Futures Report — Thursday, February 26, 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --border: #1e2330;
+    --border-bright: #2a3045;
+    --text: #c8d0e0;
+    --text-dim: #5a6480;
+    --text-bright: #eef2ff;
+    --green: #00d4a0;
+    --red: #ff4d6d;
+    --yellow: #ffd166;
+    --blue: #4d9fff;
+    --accent: #4d9fff;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  /* Grid noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      0deg, transparent, transparent 40px,
+      rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px
+    ), repeating-linear-gradient(
+      90deg, transparent, transparent 40px,
+      rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px 60px; position: relative; z-index: 1; }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border-bright);
+    padding: 28px 0 20px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .header-left .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .header-left h1 {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-bright);
+    letter-spacing: -0.02em;
+  }
+  .header-right {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: right;
+  }
+  .live-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    background: var(--green);
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── SECTION TITLES ── */
+  .section-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── FUTURES STRIP ── */
+  .futures-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .futures-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: border-color 0.2s;
+  }
+  .futures-card:hover { border-color: var(--border-bright); }
+  .futures-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .futures-price {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+  }
+  .futures-change {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* ── MAIN GRID ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── AI ANALYSIS PANEL ── */
+  .analysis-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+  }
+  .analysis-panel p { margin-bottom: 12px; color: var(--text); line-height: 1.7; }
+  .analysis-panel strong { color: var(--text-bright); }
+  .analysis-panel p:last-child { margin-bottom: 0; }
+
+  /* ── SECTOR PANEL ── */
+  .sector-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .sector-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .sector-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    width: 90px;
+    flex-shrink: 0;
+    font-family: var(--mono);
+  }
+  .sector-bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .sector-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+  .sector-pct {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    width: 56px;
+    text-align: right;
+  }
+
+  /* ── TABLES ── */
+  .table-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0 12px 10px 0;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 12px 10px 0;
+    font-size: 13px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  .symbol {
+    font-family: var(--mono);
+    font-weight: 700;
+    color: var(--text-bright);
+    font-size: 13px;
+  }
+  .event-name { color: var(--text-bright); }
+  .empty { color: var(--text-dim); font-style: italic; padding: 20px 0; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-left">
+      <div class="label">Pre-Market Intelligence</div>
+      <h1>Morning Futures Report</h1>
+    </div>
+    <div class="header-right">
+      <div>Thursday, February 26, 2026</div>
+      <div style="margin-top:4px"><span class="live-dot"></span>Generated 07:32 PM ET</div>
+    </div>
+  </header>
+
+  <!-- FUTURES STRIP -->
+  <div class="section-title">Futures Snapshot</div>
+  <div class="futures-strip">
+    
+        <div class="futures-card">
+            <div class="futures-name">S&P 500 (ES)</div>
+            <div class="futures-price">$6,897.75</div>
+            <div class="futures-change" style="color:#ff4d6d">▼ -0.89%</div>
+        </div>
+        <div class="futures-card">
+            <div class="futures-name">Dow (YM)</div>
+            <div class="futures-price">$49,281.00</div>
+            <div class="futures-change" style="color:#ff4d6d">▼ -0.51%</div>
+        </div>
+        <div class="futures-card">
+            <div class="futures-name">Nasdaq (NQ)</div>
+            <div class="futures-price">$25,020.00</div>
+            <div class="futures-change" style="color:#ff4d6d">▼ -1.43%</div>
+        </div>
+        <div class="futures-card">
+            <div class="futures-name">VIX</div>
+            <div class="futures-price">$18.64</div>
+            <div class="futures-change" style="color:#00d4a0">▲ +3.96%</div>
+        </div>
+        <div class="futures-card">
+            <div class="futures-name">Crude Oil</div>
+            <div class="futures-price">$65.25</div>
+            <div class="futures-change" style="color:#ff4d6d">▼ -0.26%</div>
+        </div>
+        <div class="futures-card">
+            <div class="futures-name">Gold</div>
+            <div class="futures-price">$5,211.60</div>
+            <div class="futures-change" style="color:#00d4a0">▲ +0.10%</div>
+        </div>
+        <div class="futures-card">
+            <div class="futures-name">30Y T-Bond</div>
+            <div class="futures-price">$118.00</div>
+            <div class="futures-change" style="color:#00d4a0">▲ +0.08%</div>
+        </div>
+  </div>
+
+  <!-- MAIN GRID: Analysis + Sectors -->
+  <div class="main-grid">
+    <div>
+      <div class="section-title">AI Morning Briefing</div>
+      <div class="analysis-panel">
+        <p># MORNING BRIEFING — Thursday, February 26, 2026</p><p>---</p><p>## 1. OVERNIGHT SUMMARY</p><p>Broad risk-off tone overnight with tech leading the selloff — NQ down 1.43% is doing the heavy lifting on index weakness. VIX popping nearly 4% to 18.64 confirms this isn't just drift; someone is buying protection. Bonds catching a modest bid and gold holding firm suggest a defensive rotation rather than a macro panic — this reads like a growth/tech-specific de-risking event, possibly tied to BABA or broader AI/tech sentiment heading into DELL and INTU after the close.</p><p>---</p><p>## 2. ES vs YM DIVERGENCE ANALYSIS</p><p><strong>Clear divergence. YM is significantly outperforming ES this morning (-0.51% vs -0.89%), and NQ is the tell.</strong></p><p>The math here is straightforward: NQ is down 1.43%, and tech/mega-cap growth represents ~30% of the S&P 500 but a much smaller slice of the Dow 30. The Dow is insulated because its top weights skew toward UnitedHealth, Goldman, Microsoft (yes, but less concentrated), Caterpillar, Amex — names tied to financials and industrials, which are the <strong>leading sectors today</strong> (Financials +1.21%, Industrials +0.63%). That sector strength is actively cushioning YM while ES gets dragged by its tech overweight.</p><p>Russell at only -0.25% reinforces this: small caps (domestic, value-tilted) are shrugging it off. This is a <strong>large-cap growth problem, not a broad market problem.</strong> If you're trading YM today, respect the relative strength — it's structural, not noise. The spread could narrow if tech finds a bid after the open, but for now, YM longs are the cleaner side if you need to be in something.</p><p>---</p><p>## 3. EARNINGS IMPACT</p><p><strong>Pre-market movers for index traders:</strong></p><p>- <strong>BABA</strong> (time TBD): Not in SPX or DJIA, but it's a sentiment proxy for China/tech risk appetite. A miss here would add to the growth-negative mood, reinforcing the NQ drag on ES. Watch the print closely.<br>- <strong>WBD</strong> (pre-market, EPS est $0.02): SPX component, media/comm services. Low bar — the $0.02 estimate means any miss goes negative. Marginal ES impact.<br>- <strong>SRE</strong> (pre-market, EPS est $1.13): SPX component (utilities/infrastructure). Unlikely to move the needle on index level.<br>- <strong>Canadian banks (RY, TD, CM)</strong>: Not index-relevant for ES/YM but worth noting for broad financials tone given the sector is leading.</p><p><strong>After-hours (positioning risk for tomorrow):</strong></p><p>- <strong>DELL</strong> (EPS est $3.32): This is the one. AI infrastructure bellwether. A beat/raise could reverse the tech selloff tomorrow; a miss accelerates it. <strong>DELL is the most important print on this list for ES direction.</strong><br>- <strong>INTU</strong> (EPS est $2.23): SPX component. Software/SaaS sentiment. Secondary to DELL but still matters.<br>- <strong>MNST</strong> (EPS est $0.49): Consumer staples-adjacent. Low index impact.</p><p><strong>Overall Earnings Impact: 🟡 MEDIUM</strong> — Nothing pre-market should gap ES or YM materially, but DELL after hours is a potential regime-changer for tomorrow's session.</p><p>---</p><p>## 4. ECONOMIC DATA IMPACT</p><p>- <strong>8:30 AM ET — BLS Release (likely GDP 2nd estimate or Jobless Claims)</strong>: The calendar is vague, but Thursday at 8:30 from BLS typically means <strong>Weekly Initial Jobless Claims</strong> and potentially <strong>Q4 GDP second estimate</strong> given the timing in the quarter. Either way:<br>  - <strong>Jobless Claims</strong>: 🟡 MEDIUM — Market is sensitive to labor softening given the defensive posture. A print above 230K adds to risk-off; below 210K probably ignored.<br>  - <strong>GDP Revision (if scheduled)</strong>: 🟡 MEDIUM to 🔴 HIGH — Any meaningful downward revision from Q4 first estimate would validate the growth scare narrative and accelerate the tech/ES selloff.</p><p><strong>Check BLS.gov at 8:30 sharp. In this tape, bad economic data will be treated as bad news, not "Fed will cut" good news.</strong> The VIX at 18.64 tells you the market is not in a "bad news is good news" mood.</p><p>---</p><p>## 5. KEY LEVELS TO WATCH</p><p><strong>ES (current: 6,897.75)</strong><br>- <strong>Resistance</strong>: 6,930–6,940 (overnight breakdown zone, expect sellers on any retest)<br>- <strong>Support</strong>: 6,870 (round psychological + likely where overnight lows cluster); below that, 6,840 is the next shelf<br>- <strong>Line in the sand</strong>: A close below 6,850 opens the door to a 6,800 test and shifts the multi-day tone bearish<br>- <strong>Upside reclaim</strong>: Need to get back above 6,940 convincingly to negate the overnight weakness</p><p><strong>YM (current: 49,281)</strong><br>- <strong>Resistance</strong>: 49,500 (big psychological level and likely pre-selloff support-turned-resistance)<br>- <strong>Support</strong>: 49,100; below that 48,900<br>- <strong>Context</strong>: YM is holding up well — 49,000 is the bull/bear line for the session. Relative strength above this level keeps the long thesis alive on the Dow side.</p><p>---</p><p>## 6. KNOW BEFORE YOU GO</p><p><strong>The dominant theme today is tech-led de-risking, and the 8:30 AM data drop is your first potential accelerant or stabilizer.</strong> If economic data comes in soft, expect ES to test 6,870 quickly — the market is not positioned to forgive weakness right now with VIX pushing toward 19. The real trade today might be the <strong>ES-YM spread</strong>: YM outperformance has legs as long as financials hold their bid and tech stays offered. <strong>What changes the bias?</strong> A strong 8:30 print plus BABA beating estimates could squeeze shorts and snap NQ back — if NQ reclaims -0.7% or better before the open, the risk-</p>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">Sector Performance</div>
+      <div class="sector-panel">
+        
+        <div class="sector-row">
+            <div class="sector-label">Financials</div>
+            <div class="sector-bar-wrap">
+                <div class="sector-bar" style="width:86%; background:#00d4a0"></div>
+            </div>
+            <div class="sector-pct" style="color:#00d4a0">+1.21%</div>
+        </div>
+        <div class="sector-row">
+            <div class="sector-label">Industrials</div>
+            <div class="sector-bar-wrap">
+                <div class="sector-bar" style="width:44%; background:#00d4a0"></div>
+            </div>
+            <div class="sector-pct" style="color:#00d4a0">+0.63%</div>
+        </div>
+        <div class="sector-row">
+            <div class="sector-label">Real Estate</div>
+            <div class="sector-bar-wrap">
+                <div class="sector-bar" style="width:31%; background:#00d4a0"></div>
+            </div>
+            <div class="sector-pct" style="color:#00d4a0">+0.44%</div>
+        </div>
+        <div class="sector-row">
+            <div class="sector-label">Energy</div>
+            <div class="sector-bar-wrap">
+                <div class="sector-bar" style="width:23%; background:#00d4a0"></div>
+            </div>
+            <div class="sector-pct" style="color:#00d4a0">+0.33%</div>
+        </div>
+        <div class="sector-row">
+            <div class="sector-label">Cons. Disc.</div>
+            <div class="sector-bar-wrap">
+                <div class="sector-bar" style="width:4%; background:#ff4d6d"></div>
+            </div>
+            <div class="sector-pct" style="color:#ff4d6d">-0.03%</div>
+        </div>
+        <div class="sector-row">
+            <div class="sector-label">Materials</div>
+            <div class="sector-bar-wrap">
+                <div class="sector-bar" style="width:8%; background:#ff4d6d"></div>
+            </div>
+            <div class="sector-pct" style="color:#ff4d6d">-0.11%</div>
+        </div>
+        <div class="sector-row">
+            <div class="sector-label">Cons. Staples</div>
+            <div class="sector-bar-wrap">
+                <div class="sector-bar" style="width:12%; background:#ff4d6d"></div>
+            </div>
+            <div class="sector-pct" style="color:#ff4d6d">-0.17%</div>
+        </div>
+        <div class="sector-row">
+            <div class="sector-label">Healthcare</div>
+            <div class="sector-bar-wrap">
+                <div class="sector-bar" style="width:18%; background:#ff4d6d"></div>
+            </div>
+            <div class="sector-pct" style="color:#ff4d6d">-0.26%</div>
+        </div>
+        <div class="sector-row">
+            <div class="sector-label">Utilities</div>
+            <div class="sector-bar-wrap">
+                <div class="sector-bar" style="width:27%; background:#ff4d6d"></div>
+            </div>
+            <div class="sector-pct" style="color:#ff4d6d">-0.38%</div>
+        </div>
+        <div class="sector-row">
+            <div class="sector-label">Technology</div>
+            <div class="sector-bar-wrap">
+                <div class="sector-bar" style="width:100%; background:#ff4d6d"></div>
+            </div>
+            <div class="sector-pct" style="color:#ff4d6d">-1.40%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EARNINGS TABLE -->
+  <div class="section-title">Today's Earnings</div>
+  <div class="table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th><th>Company</th><th>Time</th>
+          <th>EPS Est</th><th>EPS Actual</th><th>Surprise</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+            <td class="symbol">BABA</td>
+            <td>Alibaba Group Holding Limited</td>
+            <td>time-not-supplied</td>
+            <td>$1.73</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">RY</td>
+            <td>Royal Bank Of Canada</td>
+            <td>time-pre-market</td>
+            <td>$2.81</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">TD</td>
+            <td>Toronto Dominion Bank (The)</td>
+            <td>time-pre-market</td>
+            <td>$1.63</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">INTU</td>
+            <td>Intuit Inc.</td>
+            <td>time-after-hours</td>
+            <td>$2.23</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">CM</td>
+            <td>Canadian Imperial Bank of Commerce</td>
+            <td>time-pre-market</td>
+            <td>$1.74</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">MNST</td>
+            <td>Monster Beverage Corporation</td>
+            <td>time-after-hours</td>
+            <td>$0.49</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">DELL</td>
+            <td>Dell Technologies Inc.</td>
+            <td>time-after-hours</td>
+            <td>$3.32</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">E</td>
+            <td>ENI S.p.A.</td>
+            <td>time-pre-market</td>
+            <td>$0.78</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">WBD</td>
+            <td>Warner Bros. Discovery, Inc.</td>
+            <td>time-pre-market</td>
+            <td>$0.02</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">SRE</td>
+            <td>Sempra </td>
+            <td>time-pre-market</td>
+            <td>$1.13</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">VST</td>
+            <td>Vistra Corp.</td>
+            <td>time-pre-market</td>
+            <td>$2.51</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">ARGX</td>
+            <td>argenx SE</td>
+            <td>time-pre-market</td>
+            <td>$6.24</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">CRWV</td>
+            <td>CoreWeave, Inc.</td>
+            <td>time-after-hours</td>
+            <td>($0.61)</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">RKT</td>
+            <td>Rocket Companies, Inc.</td>
+            <td>time-after-hours</td>
+            <td>$0.06</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr>
+        <tr>
+            <td class="symbol">ADSK</td>
+            <td>Autodesk, Inc.</td>
+            <td>time-after-hours</td>
+            <td>$1.93</td>
+            <td>—</td>
+            <td style="color:#ccc">—</td>
+        </tr></tbody>
+    </table>
+  </div>
+
+  <!-- ECONOMIC CALENDAR -->
+  <div class="section-title">Economic Calendar</div>
+  <div class="table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th><th>Event</th><th>Impact</th>
+          <th>Forecast</th><th>Actual</th><th>Previous</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+            <td>8:30 AM ET</td>
+            <td class="event-name">Check BLS.gov for today's scheduled releases</td>
+            <td style="color:#888; font-weight:700">—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+        </tr></tbody>
+    </table>
+  </div>
+
+  <footer>
+    Data: Yahoo Finance · Nasdaq Earnings Calendar · Alpha Vantage · Analysis: Claude AI &nbsp;|&nbsp;
+    Not financial advice. For informational purposes only.
+  </footer>
+
+</div>
+</body>
+</html>
