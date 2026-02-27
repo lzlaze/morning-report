@@ -565,6 +565,9 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
     analysis_html = analysis_html.replace('\n\n', '</p><p>').replace('\n', '<br>')
     analysis_html = f"<p>{analysis_html}</p>"
 
+    # Escape analysis for safe JS string embedding
+    analysis_text_for_js = analysis.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
+
     setup_cards_html = build_setup_cards_html(setups_data)
     generated_at = datetime.now(ET).strftime("%I:%M %p ET")
 
@@ -855,6 +858,258 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
     color: var(--text-dim);
     text-align: center;
   }}
+
+  /* ── AI CHAT WINDOW ── */
+  #chat-fab {{
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 54px;
+    height: 54px;
+    background: var(--accent);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    box-shadow: 0 4px 24px rgba(77,159,255,0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }}
+  #chat-fab:hover {{ transform: scale(1.08); box-shadow: 0 6px 32px rgba(77,159,255,0.55); }}
+  #chat-fab svg {{ width: 24px; height: 24px; fill: white; }}
+
+  #chat-panel {{
+    position: fixed;
+    bottom: 96px;
+    right: 28px;
+    width: 400px;
+    max-height: 560px;
+    background: #0e1118;
+    border: 1px solid var(--border-bright);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    z-index: 999;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    transform: translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }}
+  #chat-panel.open {{
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: all;
+  }}
+  .chat-header {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }}
+  .chat-header-left {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }}
+  .chat-header-icon {{
+    width: 28px;
+    height: 28px;
+    background: rgba(77,159,255,0.15);
+    border: 1px solid rgba(77,159,255,0.3);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }}
+  .chat-header-title {{
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-bright);
+  }}
+  .chat-header-sub {{
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 1px;
+  }}
+  .chat-close {{
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }}
+  .chat-close:hover {{ color: var(--text-bright); }}
+
+  #chat-messages {{
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 200px;
+  }}
+  #chat-messages::-webkit-scrollbar {{ width: 4px; }}
+  #chat-messages::-webkit-scrollbar-track {{ background: transparent; }}
+  #chat-messages::-webkit-scrollbar-thumb {{ background: var(--border-bright); border-radius: 2px; }}
+
+  .chat-msg {{
+    max-width: 88%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    animation: msgIn 0.2s ease;
+  }}
+  @keyframes msgIn {{ from {{ opacity:0; transform:translateY(6px); }} to {{ opacity:1; transform:translateY(0); }} }}
+  .chat-msg.user {{
+    background: rgba(77,159,255,0.12);
+    border: 1px solid rgba(77,159,255,0.2);
+    color: var(--text-bright);
+    align-self: flex-end;
+    font-family: var(--sans);
+  }}
+  .chat-msg.assistant {{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    align-self: flex-start;
+    font-family: var(--sans);
+  }}
+  .chat-msg.assistant strong {{ color: var(--text-bright); }}
+  .chat-msg.thinking {{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    align-self: flex-start;
+    font-family: var(--mono);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }}
+  .thinking-dots span {{
+    display: inline-block;
+    width: 5px; height: 5px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: dot 1.2s ease-in-out infinite;
+  }}
+  .thinking-dots span:nth-child(2) {{ animation-delay: 0.2s; }}
+  .thinking-dots span:nth-child(3) {{ animation-delay: 0.4s; }}
+  @keyframes dot {{ 0%,80%,100% {{ transform:scale(0.6); opacity:0.4; }} 40% {{ transform:scale(1); opacity:1; }} }}
+
+  .chat-suggestions {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 16px 12px;
+  }}
+  .chat-suggest-btn {{
+    background: rgba(77,159,255,0.07);
+    border: 1px solid rgba(77,159,255,0.2);
+    border-radius: 20px;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }}
+  .chat-suggest-btn:hover {{ background: rgba(77,159,255,0.15); }}
+
+  .chat-input-row {{
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px 16px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }}
+  #chat-input {{
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-bright);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    resize: none;
+  }}
+  #chat-input:focus {{ border-color: var(--accent); }}
+  #chat-input::placeholder {{ color: var(--text-dim); }}
+  #chat-send {{
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    padding: 9px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+  }}
+  #chat-send:hover {{ opacity: 0.85; }}
+  #chat-send:disabled {{ opacity: 0.4; cursor: not-allowed; }}
+
+  #chat-key-prompt {{
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }}
+  #chat-key-prompt p {{
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--sans);
+    line-height: 1.5;
+  }}
+  #chat-key-input {{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-bright);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 9px 12px;
+    outline: none;
+    width: 100%;
+  }}
+  #chat-key-input:focus {{ border-color: var(--accent); }}
+  #chat-key-save {{
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    padding: 9px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    width: 100%;
+  }}
+
+  @media (max-width: 480px) {{
+    #chat-panel {{ width: calc(100vw - 32px); right: 16px; bottom: 80px; }}
+    #chat-fab {{ right: 16px; bottom: 16px; }}
+  }}
 </style>
 </head>
 <body>
@@ -915,6 +1170,222 @@ def build_html(futures_data, earnings, econ_events, sectors, analysis, setups_da
   </footer>
 
 </div>
+
+<!-- ── AI CHAT WINDOW ── -->
+<button id="chat-fab" onclick="toggleChat()" title="Ask Claude about today's market">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.07L2 22l4.93-1.37A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+  </svg>
+</button>
+
+<div id="chat-panel">
+  <div class="chat-header">
+    <div class="chat-header-left">
+      <div class="chat-header-icon">📊</div>
+      <div>
+        <div class="chat-header-title">Market Analyst</div>
+        <div class="chat-header-sub">Loaded with today's full report context</div>
+      </div>
+    </div>
+    <button class="chat-close" onclick="toggleChat()">✕</button>
+  </div>
+
+  <div id="chat-key-prompt" style="display:none">
+    <p>Enter your Anthropic API key to enable the chat. It's stored only in your browser — never sent anywhere except directly to Anthropic.</p>
+    <input id="chat-key-input" type="password" placeholder="sk-ant-..." />
+    <button id="chat-key-save" onclick="saveKey()">Save &amp; Start Chatting</button>
+  </div>
+
+  <div id="chat-main" style="display:none; flex-direction:column; flex:1; overflow:hidden">
+    <div id="chat-messages"></div>
+    <div class="chat-suggestions">
+      <button class="chat-suggest-btn" onclick="suggest(this)">Why are ES and YM diverging?</button>
+      <button class="chat-suggest-btn" onclick="suggest(this)">Re-analyze my ES setup</button>
+      <button class="chat-suggest-btn" onclick="suggest(this)">Should I fade this open?</button>
+      <button class="chat-suggest-btn" onclick="suggest(this)">What's moving the market right now?</button>
+    </div>
+    <div class="chat-input-row">
+      <textarea id="chat-input" rows="1" placeholder="Ask anything about today's market..." onkeydown="handleKey(event)"></textarea>
+      <button id="chat-send" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── MORNING REPORT CONTEXT (injected at generation time) ──
+const MORNING_CONTEXT = `{analysis_text_for_js}`;
+
+const SYSTEM_PROMPT = `You are an expert futures trading analyst embedded in a trader's morning dashboard. Today is {TODAY}.
+
+You have full context from this morning's pre-market report:
+
+${{MORNING_CONTEXT}}
+
+The trader primarily trades ES (S&P 500 futures) and YM (Dow futures). Their style: breakout/breakdown of key levels, mean reversion/fade the open, VWAP structural breaks.
+
+Answer questions concisely and directly — like a sharp desk analyst responding between trades. Be specific with levels and reasoning. If they ask about divergence, reference index composition (tech ~30% of SPX vs industrials/financials in Dow). If they ask about a setup, reference the morning's key levels. Keep responses under 200 words unless a detailed breakdown is genuinely needed.`;
+
+let chatHistory = [];
+let isOpen = false;
+let isLoading = false;
+
+function toggleChat() {{
+  isOpen = !isOpen;
+  const panel = document.getElementById('chat-panel');
+  panel.classList.toggle('open', isOpen);
+  if (isOpen) {{
+    initChat();
+    setTimeout(() => document.getElementById('chat-input')?.focus(), 300);
+  }}
+}}
+
+function initChat() {{
+  const key = localStorage.getItem('anthropic_key');
+  const keyPrompt = document.getElementById('chat-key-prompt');
+  const chatMain = document.getElementById('chat-main');
+  if (!key) {{
+    keyPrompt.style.display = 'flex';
+    chatMain.style.display = 'none';
+  }} else {{
+    keyPrompt.style.display = 'none';
+    chatMain.style.display = 'flex';
+    if (chatHistory.length === 0) addWelcome();
+  }}
+}}
+
+function saveKey() {{
+  const val = document.getElementById('chat-key-input').value.trim();
+  if (!val.startsWith('sk-ant-')) {{
+    alert('That does not look like a valid Anthropic API key (should start with sk-ant-)');
+    return;
+  }}
+  localStorage.setItem('anthropic_key', val);
+  document.getElementById('chat-key-prompt').style.display = 'none';
+  const chatMain = document.getElementById('chat-main');
+  chatMain.style.display = 'flex';
+  if (chatHistory.length === 0) addWelcome();
+}}
+
+function addWelcome() {{
+  addMessage('assistant', "Morning. I've got the full report loaded — futures, setups, earnings, economic calendar. What do you need?");
+}}
+
+function suggest(btn) {{
+  document.getElementById('chat-input').value = btn.textContent;
+  sendMessage();
+}}
+
+function handleKey(e) {{
+  if (e.key === 'Enter' && !e.shiftKey) {{
+    e.preventDefault();
+    sendMessage();
+  }}
+}}
+
+function addMessage(role, content) {{
+  const messages = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${{role}}`;
+  // Basic markdown: bold
+  div.innerHTML = content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return div;
+}}
+
+function addThinking() {{
+  const messages = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg thinking';
+  div.id = 'thinking-indicator';
+  div.innerHTML = `Analyzing <span class="thinking-dots"><span></span><span></span><span></span></span>`;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}}
+
+function removeThinking() {{
+  const el = document.getElementById('thinking-indicator');
+  if (el) el.remove();
+}}
+
+async function sendMessage() {{
+  const input = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('chat-send');
+  const text = input.value.trim();
+  if (!text || isLoading) return;
+
+  const key = localStorage.getItem('anthropic_key');
+  if (!key) {{ initChat(); return; }}
+
+  input.value = '';
+  input.style.height = 'auto';
+  isLoading = true;
+  sendBtn.disabled = true;
+
+  addMessage('user', text);
+  chatHistory.push({{ role: 'user', content: text }});
+
+  addThinking();
+
+  try {{
+    const response = await fetch('https://api.anthropic.com/v1/messages', {{
+      method: 'POST',
+      headers: {{
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      }},
+      body: JSON.stringify({{
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        system: SYSTEM_PROMPT,
+        messages: chatHistory,
+      }}),
+    }});
+
+    removeThinking();
+
+    if (!response.ok) {{
+      const err = await response.json();
+      if (response.status === 401) {{
+        localStorage.removeItem('anthropic_key');
+        addMessage('assistant', 'API key invalid or expired. Click the chat button again to re-enter your key.');
+      }} else {{
+        addMessage('assistant', `Error: ${{err?.error?.message || response.statusText}}`);
+      }}
+      chatHistory.pop();
+    }} else {{
+      const data = await response.json();
+      const reply = data.content[0].text;
+      addMessage('assistant', reply);
+      chatHistory.push({{ role: 'assistant', content: reply }});
+      // Keep history manageable — last 20 messages
+      if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
+    }}
+  }} catch(e) {{
+    removeThinking();
+    addMessage('assistant', 'Network error — check your connection and try again.');
+    chatHistory.pop();
+  }}
+
+  isLoading = false;
+  sendBtn.disabled = false;
+  input.focus();
+}}
+
+// Auto-resize textarea
+document.addEventListener('DOMContentLoaded', () => {{
+  const input = document.getElementById('chat-input');
+  if (input) {{
+    input.addEventListener('input', function() {{
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+    }});
+  }}
+}});
+</script>
+
 </body>
 </html>"""
 
