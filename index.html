@@ -32,25 +32,16 @@
     line-height: 1.6;
     min-height: 100vh;
   }
-  /* Grid noise texture overlay */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
-    background-image: repeating-linear-gradient(
-      0deg, transparent, transparent 40px,
-      rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px
-    ), repeating-linear-gradient(
-      90deg, transparent, transparent 40px,
-      rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px
-    );
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px), repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.012) 40px, rgba(255,255,255,0.012) 41px);
     pointer-events: none;
     z-index: 0;
   }
-
   .container { max-width: 1200px; margin: 0 auto; padding: 0 24px 60px; position: relative; z-index: 1; }
 
-  /* ── HEADER ── */
   header {
     border-bottom: 1px solid var(--border-bright);
     padding: 28px 0 20px;
@@ -88,12 +79,8 @@
     margin-right: 6px;
     animation: pulse 2s ease-in-out infinite;
   }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-  /* ── SECTION TITLES ── */
   .section-title {
     font-family: var(--mono);
     font-size: 11px;
@@ -106,7 +93,7 @@
     border-bottom: 1px solid var(--border);
   }
 
-  /* ── FUTURES STRIP ── */
+  /* FUTURES STRIP */
   .futures-strip {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -121,39 +108,19 @@
     transition: border-color 0.2s;
   }
   .futures-card:hover { border-color: var(--border-bright); }
-  .futures-name {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .futures-price {
-    font-family: var(--mono);
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-bright);
-    margin-bottom: 4px;
-  }
-  .futures-change {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 600;
-  }
+  .futures-name { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .futures-price { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+  .futures-change { font-family: var(--mono); font-size: 13px; font-weight: 600; }
 
-  /* ── MAIN GRID ── */
+  /* MAIN GRID */
   .main-grid {
     display: grid;
     grid-template-columns: 1fr 300px;
     gap: 24px;
     margin-bottom: 24px;
   }
-  @media (max-width: 900px) {
-    .main-grid { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
 
-  /* ── AI ANALYSIS PANEL ── */
   .analysis-panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -164,47 +131,136 @@
   .analysis-panel strong { color: var(--text-bright); }
   .analysis-panel p:last-child { margin-bottom: 0; }
 
-  /* ── SECTOR PANEL ── */
   .sector-panel {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 20px;
   }
-  .sector-row {
+  .sector-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .sector-label { font-size: 12px; color: var(--text-dim); width: 90px; flex-shrink: 0; font-family: var(--mono); }
+  .sector-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .sector-bar { height: 100%; border-radius: 3px; }
+  .sector-pct { font-family: var(--mono); font-size: 12px; font-weight: 600; width: 56px; text-align: right; }
+
+  /* TRADE SETUPS */
+  .setups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .setup-header {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
   }
-  .sector-label {
+  .setup-instrument {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-bright);
+  }
+  .setup-bias {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: 0.08em;
+  }
+  .setup-type-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    background: var(--border);
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+  .setup-conf {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: auto;
+  }
+  .setup-trigger {
+    background: rgba(77,159,255,0.06);
+    border: 1px solid rgba(77,159,255,0.2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+  .setup-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-right: 8px;
+    text-transform: uppercase;
+  }
+  .setup-value { color: var(--text-bright); }
+  .setup-levels {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .level-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+  }
+  .level-label { font-family: var(--mono); font-size: 9px; color: var(--text-dim); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .level-price { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--text-bright); margin-bottom: 2px; }
+  .level-pts { font-family: var(--mono); font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+  .level-rr { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+  .setup-condition {
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 6px;
+    line-height: 1.5;
+  }
+  .setup-invalidated {
     font-size: 12px;
     color: var(--text-dim);
-    width: 90px;
-    flex-shrink: 0;
-    font-family: var(--mono);
+    margin-bottom: 10px;
+    line-height: 1.5;
   }
-  .sector-bar-wrap {
-    flex: 1;
-    height: 6px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  .sector-bar {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 0.8s ease;
-  }
-  .sector-pct {
-    font-family: var(--mono);
+  .setup-rationale {
     font-size: 12px;
-    font-weight: 600;
-    width: 56px;
-    text-align: right;
+    color: var(--text-dim);
+    font-style: italic;
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    margin-top: 4px;
+  }
+  .setup-error {
+    color: var(--text-dim);
+    font-style: italic;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 24px;
   }
 
-  /* ── TABLES ── */
+  /* TABLES */
   .table-panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -214,34 +270,13 @@
     overflow-x: auto;
   }
   table { width: 100%; border-collapse: collapse; }
-  th {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 0 12px 10px 0;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-  }
-  td {
-    padding: 10px 12px 10px 0;
-    font-size: 13px;
-    color: var(--text);
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-  }
+  th { font-family: var(--mono); font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; padding: 0 12px 10px 0; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px 10px 0; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
-  .symbol {
-    font-family: var(--mono);
-    font-weight: 700;
-    color: var(--text-bright);
-    font-size: 13px;
-  }
+  .symbol { font-family: var(--mono); font-weight: 700; color: var(--text-bright); font-size: 13px; }
   .event-name { color: var(--text-bright); }
   .empty { color: var(--text-dim); font-style: italic; padding: 20px 0; }
 
-  /* ── FOOTER ── */
   footer {
     border-top: 1px solid var(--border);
     padding-top: 20px;
@@ -262,28 +297,27 @@
     </div>
     <div class="header-right">
       <div>Thursday, February 26, 2026</div>
-      <div style="margin-top:4px"><span class="live-dot"></span>Generated 08:29 PM ET</div>
+      <div style="margin-top:4px"><span class="live-dot"></span>Generated 08:41 PM ET</div>
     </div>
   </header>
 
   <!-- FUTURES STRIP -->
   <div class="section-title">Futures Snapshot</div>
   <div class="futures-strip">
-    
         <div class="futures-card">
             <div class="futures-name">S&P 500 (ES)</div>
-            <div class="futures-price">$6,896.00</div>
-            <div class="futures-change" style="color:#ff4d6d">▼ -0.92%</div>
+            <div class="futures-price">$6,891.50</div>
+            <div class="futures-change" style="color:#ff4d6d">▼ -0.98%</div>
         </div>
         <div class="futures-card">
             <div class="futures-name">Dow (YM)</div>
-            <div class="futures-price">$49,262.00</div>
-            <div class="futures-change" style="color:#ff4d6d">▼ -0.55%</div>
+            <div class="futures-price">$49,247.00</div>
+            <div class="futures-change" style="color:#ff4d6d">▼ -0.58%</div>
         </div>
         <div class="futures-card">
             <div class="futures-name">Nasdaq (NQ)</div>
-            <div class="futures-price">$25,011.00</div>
-            <div class="futures-change" style="color:#ff4d6d">▼ -1.46%</div>
+            <div class="futures-price">$24,987.75</div>
+            <div class="futures-change" style="color:#ff4d6d">▼ -1.55%</div>
         </div>
         <div class="futures-card">
             <div class="futures-name">VIX</div>
@@ -292,33 +326,29 @@
         </div>
         <div class="futures-card">
             <div class="futures-name">Crude Oil</div>
-            <div class="futures-price">$64.94</div>
-            <div class="futures-change" style="color:#ff4d6d">▼ -0.73%</div>
+            <div class="futures-price">$65.02</div>
+            <div class="futures-change" style="color:#ff4d6d">▼ -0.61%</div>
         </div>
         <div class="futures-card">
             <div class="futures-name">Gold</div>
-            <div class="futures-price">$5,194.00</div>
-            <div class="futures-change" style="color:#ff4d6d">▼ -0.24%</div>
+            <div class="futures-price">$5,190.90</div>
+            <div class="futures-change" style="color:#ff4d6d">▼ -0.30%</div>
         </div>
         <div class="futures-card">
             <div class="futures-name">30Y T-Bond</div>
-            <div class="futures-price">$118.03</div>
-            <div class="futures-change" style="color:#00d4a0">▲ +0.11%</div>
-        </div>
-  </div>
+            <div class="futures-price">$118.06</div>
+            <div class="futures-change" style="color:#00d4a0">▲ +0.13%</div>
+        </div></div>
 
   <!-- MAIN GRID: Analysis + Sectors -->
   <div class="main-grid">
     <div>
       <div class="section-title">AI Morning Briefing</div>
-      <div class="analysis-panel">
-        <p># MORNING BRIEFING — Thursday, February 26, 2026</p><p>---</p><p>## 1. OVERNIGHT SUMMARY</p><p>Risk-off tone across the board overnight with heavy selling concentrated in tech/growth — NQ leading the decline at -1.46% while defensives and value hold up relatively better. No single headline catalyst is obvious, but the move has the fingerprint of a tech-specific unwind, possibly positioning ahead of DELL and INTU after-hours or a reaction to overnight BABA results leaking/pricing in. VIX popping nearly 4% to 18.64 confirms real hedging demand, not just drift — this is an active de-risk, not thin-market noise.</p><p>---</p><p>## 2. ES vs YM DIVERGENCE ANALYSIS</p><p><strong>Clear divergence. YM outperforming ES by ~37bps.</strong> This is a textbook tech-drag session. Here's the math:</p><p>- <strong>NQ is down -1.46%</strong>, and with tech comprising ~30% of SPX weight, that's dragging ES (-0.92%) significantly harder than YM (-0.55%).<br>- <strong>YM's composition</strong> — heavier in financials, industrials, healthcare — is being buoyed by <strong>Financials +1.21% and Industrials +0.63%</strong>, which are the top two leading sectors today. These are core Dow components (GS, JPM, CAT, HON, UNH).<br>- <strong>Russell at only -0.31%</strong> reinforces that this is a mega-cap tech problem, not a broad growth scare. Small caps with minimal FAANG exposure are shrugging it off.</p><p><strong>Bottom line:</strong> If you're long ES and hedging with YM, the hedge is underperforming your pain. YM is catching a bid from sector rotation into exactly the sectors it overweights. Watch for this spread to compress if tech stabilizes mid-morning, or widen further if NQ breaks below 25,000 psychological support.</p><p>---</p><p>## 3. EARNINGS IMPACT</p><p><strong>Names that matter for index movement:</strong></p><p>| Ticker | Index Relevance | Notes |<br>|--------|----------------|-------|<br>| <strong>DELL</strong> (after-hours) | S&P 500 component | AI/server infrastructure proxy. EPS est $3.32 is a high bar. A miss or weak forward guidance could extend the tech selling into Friday. This is the single most important earnings print today for ES. |<br>| <strong>INTU</strong> (after-hours) | S&P 500 component | ~$180B+ market cap. Software/fintech bellwether. Won't move ES dramatically but adds to growth sentiment. |<br>| <strong>BABA</strong> (time TBD) | Not in SPX/DJIA | No direct index impact, but sets tone for China/global growth narrative. Watch for read-through to broad risk appetite. |<br>| <strong>RY / TD / CM</strong> (pre-market) | Not in SPX/DJIA | Canadian banks — no direct US index impact, but financials sector tone matters. Positive results support the Financials +1.21% bid holding. |<br>| <strong>WBD</strong> (pre-market) | S&P 500 (small weight) | Minimal index impact at $0.02 EPS est. Noise. |<br>| <strong>SRE</strong> (pre-market) | S&P 500 (Utilities) | Defensive, low volatility name. Won't move the tape. |</p><p><strong>Overall Earnings Impact Rating: 🟡 MEDIUM</strong> — Nothing pre-market will move ES/YM meaningfully. The real event risk is DELL after-hours, which could set Friday's open tone. INTU secondary. Today's session itself trades on positioning and macro, not earnings.</p><p>---</p><p>## 4. ECONOMIC DATA IMPACT</p><p>| Time | Event | Rating | Notes |<br>|------|-------|--------|-------|<br>| <strong>8:30 AM ET</strong> | BLS release — likely <strong>GDP (2nd estimate) or Jobless Claims</strong> based on the Thursday calendar pattern | 🔴 <strong>HIGH</strong> if GDP revision / 🟡 MEDIUM if claims only | This is the main uncertainty. Thursday 8:30 AM in late February = almost certainly <strong>weekly jobless claims</strong> and possibly <strong>Q4 GDP second estimate</strong> or <strong>Durable Goods</strong>. Any of these move the tape. |</p><p><strong>I flagged the calendar gap.</strong> The BLS.gov reference without specifics is a problem — you need to confirm the exact release before the 8:30 print. If this is the <strong>Q4 GDP second estimate</strong>, a downward revision below 2.3% could accelerate the sell-off (stagflation fears with persistent inflation). If it's just claims, the bar to move futures is higher — need a print above 240K+ to matter.</p><p><strong>Action item:</strong> Verify the 8:30 release NOW before the print catches you flat-footed.</p><p>---</p><p>## 5. KEY LEVELS TO WATCH</p><p>### ES (Current: 6,896)</p><p>| Level | Type | Context |<br>|-------|------|---------|<br>| <strong>6,920–6,930</strong> | Resistance | Overnight rejection zone / likely VWAP from yesterday's settlement area |<br>| <strong>6,900</strong> | Psychological | Round number; just lost it. A reclaim and hold above 6,900 in the first 30 minutes would signal the sell-off is fading |<br>| <strong>6,870</strong> | Support | Approximate area of the next volume shelf — if 6,880 breaks, expect a flush to test here |<br>| <strong>6,840–6,850</strong> | Major Support | Below here and you're looking at a -1.5%+ day; likely triggers systematic/CTA selling |<br>| <strong>6,950</strong> | Upside target | Only relevant if 8:30 data sparks a reversal — this is yesterday's support-turned-resistance |</p><p>### YM (Current: 49,262)</p><p>| Level | Type | Context |<br>|-------|------|---------|<br>| <strong>49,500</strong> | Resistance | Round number and likely overnight high zone |<br>| <strong>49,000</strong> | Key Support / Psychological | Big level — a break below 49K would signal the financials/industrials bid is failing and the sell-off is broadening |<br>| <strong>48,800</strong> | Major Support | Below here, YM starts catching down to ES's weakness |<br>| <strong>49,700–49,800</strong> | Upside | Only on a strong reversal + positive data |</p><p>**</p>
-      </div>
+      <div class="analysis-panel"><p># MORNING BRIEFING — Thursday, February 26, 2026</p><p>---</p><p>## 1. OVERNIGHT SUMMARY</p><p>Broad risk-off overnight with tech leading the selloff — NQ down 1.55% is dragging ES lower while the Dow holds up relatively better. VIX popping nearly 4% to 18.64 signals hedging demand is picking up, though we're not in panic territory yet. No single obvious catalyst — this looks like a growth/momentum unwind with rotation into defensive and value names, evidenced by Financials leading at +1.21% and Real Estate holding green while tech gets hit.</p><p>---</p><p>## 2. ES vs YM DIVERGENCE ANALYSIS</p><p><strong>Notable divergence: ES -0.98% vs YM -0.58% — a 40bps spread that matters.</strong></p><p>This is a textbook tech-drag divergence. ES has ~30% tech weight and is absorbing the NQ -1.55% hit directly. YM, dominated by industrials, financials, and healthcare, is being cushioned by the Financials +1.21% and Industrials +0.63% sector bid. Names like GS, JPM, UNH, and CAT are effectively acting as a floor under YM while AAPL, MSFT, and NVDA drag ES lower. Russell's mild -0.41% decline confirms this isn't a broad economic fear trade — it's concentrated in high-multiple growth/tech. <strong>If you're long, YM is the relative safe haven today. If you're shorting, ES offers more momentum downside.</strong></p><p>---</p><p>## 3. EARNINGS IMPACT</p><p>| Ticker | Relevance | Notes |<br>|--------|-----------|-------|<br>| <strong>DELL</strong> (after-hours) | 🔴 HIGH for ES/NQ | AI infrastructure bellwether — any guidance miss will accelerate the tech unwind into tomorrow. Watch this one closely. |<br>| <strong>INTU</strong> (after-hours) | 🟡 MEDIUM for ES | S&P 500 component, SMB spending proxy. Won't move the index much but sets tone for software. |<br>| <strong>BABA</strong> (time TBD) | 🟡 MEDIUM | Not in SPX/DJIA but a China sentiment barometer. Moves NQ sympathy names. |<br>| <strong>RY / TD / CM</strong> (pre-market) | 🟡 MEDIUM for YM | Canadian bank trio — sets tone for North American financials, which are YM's best sector today. A beat here reinforces the YM bid. |<br>| <strong>WBD</strong> (pre-market) | 🟢 LOW | Small weight, low expectations. Noise unless a massive surprise. |<br>| <strong>SRE / E / MNST</strong> | 🟢 LOW | Minimal index impact. |</p><p><strong>Overall Earnings Impact Today: 🟡 MEDIUM</strong> — The real event is DELL after the close. Pre-market names won't move the needle much for ES/YM, but the Canadian banks could reinforce or undermine the financial sector bid propping up YM.</p><p>---</p><p>## 4. ECONOMIC DATA IMPACT</p><p>| Time | Event | Rating | Notes |<br>|------|-------|--------|-------|<br>| <strong>8:30 AM ET</strong> | BLS release (likely GDP 2nd estimate, Jobless Claims, or Durable Goods) | 🔴 HIGH | February 26 historically slots for weekly claims + Q4 GDP second estimate or Durable Goods. Any of these can move ES 20+ handles in this environment. <strong>Check BLS.gov and BEA.gov at 8:25 AM.</strong> With VIX already elevated and tech under pressure, a hot inflation print or weak growth number could accelerate this move. |</p><p><strong>The 8:30 AM print is your first landmine of the day. Do not be positioned heavy through it without knowing what's dropping.</strong></p><p>---</p><p>## 5. KNOW BEFORE YOU GO</p><p><strong>Dominant theme is growth-to-value rotation with a tech unwind — trade accordingly.</strong> The 40bps ES/YM spread will either widen (if 8:30 data disappoints on growth or DELL guides poorly tonight) or compress (if data comes in benign and dip buyers step into tech). <strong>The single most important thing at the open is the 8:30 AM data print</strong> — in a tape already leaning risk-off, a negative surprise could push ES through 6,850 support and flip this from an orderly rotation into a real risk event. What changes my bias from cautious-bearish to neutral: ES reclaiming 6,920 with volume and VIX rolling back below 18. Until then, respect the sellers.</p><p>---</p><p>*Desk is live at 8:15 AM. Good trading.*</p></div>
     </div>
     <div>
       <div class="section-title">Sector Performance</div>
       <div class="sector-panel">
-        
         <div class="sector-row">
             <div class="sector-label">Financials</div>
             <div class="sector-bar-wrap">
@@ -388,21 +418,187 @@
                 <div class="sector-bar" style="width:100%; background:#ff4d6d"></div>
             </div>
             <div class="sector-pct" style="color:#ff4d6d">-1.40%</div>
-        </div>
-      </div>
+        </div></div>
     </div>
   </div>
+
+  <!-- TRADE SETUPS -->
+  <div class="section-title">Trade Setups — ES &amp; YM</div>
+  <div class="setups-grid">
+        <div class="setup-card" style="border-color:#00d4a020;background:rgba(0,212,160,0.08)">
+          <div class="setup-header">
+            <div class="setup-instrument">ES</div>
+            <div class="setup-bias" style="color:#00d4a0;border-color:#00d4a040;background:#00d4a015">LONG</div>
+            <div class="setup-type-badge">Mean Reversion / Fade the Open</div>
+            <div class="setup-conf" style="color:#ffd166">● MEDIUM</div>
+          </div>
+
+          <div class="setup-trigger">
+            <span class="setup-label">TRIGGER</span>
+            <span class="setup-value">ES holds overnight low 6,870.75 and reclaims 6,892.25 (PDL) on a 5-minute close, signaling failed breakdown and mean reversion back toward value</span>
+          </div>
+
+          <div class="setup-levels">
+            <div class="level-box level-target">
+              <div class="level-label">T1</div>
+              <div class="level-price">6,912.00</div>
+              <div class="level-pts" style="color:#00d4a0">+19.8 pts</div>
+              <div class="level-rr">1:0.7</div>
+            </div>
+            <div class="level-box level-target">
+              <div class="level-label">T2</div>
+              <div class="level-price">6,940.00</div>
+              <div class="level-pts" style="color:#00d4a0">+47.8 pts</div>
+              <div class="level-rr">1:1.8</div>
+            </div>
+            <div class="level-box level-stop">
+              <div class="level-label">STOP</div>
+              <div class="level-price">6,865.00</div>
+              <div class="level-pts" style="color:#ff4d6d">-27.2 pts</div>
+              <div class="level-rr">risk</div>
+            </div>
+          </div>
+
+          <div class="setup-condition">
+            <span class="setup-label">CONDITION</span> Must see a sweep or test of ONL 6,870.75 followed by strong bid and reclaim of PDL 6,892.25 on a 5-min close. Check BLS.gov for 8:30 AM release — if GDP/Jobless Claims prints hot, wait for reaction to settle before entry. YM must also hold above 49,124 (PDL) to confirm broad support
+          </div>
+          <div class="setup-invalidated">
+            <span class="setup-label" style="color:#ff4d6d">INVALIDATED</span> 5-minute close below 6,865.00 or a sustained break below overnight low 6,870.75 with increasing sell-side delta
+          </div>
+          <div class="setup-rationale">ES has sold off nearly 1% and is sitting just above the overnight low of 6,870.75, which aligns closely with the prior week low zone (6,828.50). The PDL at 6,892.25 is a natural magnet for mean reversion if the overnight low holds as support. VIX at 18.64 and rising suggests elevated volatility, so the first target is conservative near the 6,900 round number with a stretch to 6,940 (mid-range).</div>
+        </div>
+        <div class="setup-card" style="border-color:#ff4d6d20;background:rgba(255,77,109,0.08)">
+          <div class="setup-header">
+            <div class="setup-instrument">ES</div>
+            <div class="setup-bias" style="color:#ff4d6d;border-color:#ff4d6d40;background:#ff4d6d15">SHORT</div>
+            <div class="setup-type-badge">Breakdown / VWAP Rejection</div>
+            <div class="setup-conf" style="color:#00d4a0">● HIGH</div>
+          </div>
+
+          <div class="setup-trigger">
+            <span class="setup-label">TRIGGER</span>
+            <span class="setup-value">ES fails to reclaim 6,900 round number and breaks below overnight low 6,870.75 on a 5-minute close with volume confirmation</span>
+          </div>
+
+          <div class="setup-levels">
+            <div class="level-box level-target">
+              <div class="level-label">T1</div>
+              <div class="level-price">6,845.00</div>
+              <div class="level-pts" style="color:#00d4a0">+25.8 pts</div>
+              <div class="level-rr">1:0.9</div>
+            </div>
+            <div class="level-box level-target">
+              <div class="level-label">T2</div>
+              <div class="level-price">6,828.50</div>
+              <div class="level-pts" style="color:#00d4a0">+42.2 pts</div>
+              <div class="level-rr">1:1.4</div>
+            </div>
+            <div class="level-box level-stop">
+              <div class="level-label">STOP</div>
+              <div class="level-price">6,901.00</div>
+              <div class="level-pts" style="color:#ff4d6d">-30.2 pts</div>
+              <div class="level-rr">risk</div>
+            </div>
+          </div>
+
+          <div class="setup-condition">
+            <span class="setup-label">CONDITION</span> ES must reject the 6,900 round number or developing VWAP from above and then print a 5-min close below 6,870.75 ONL. Ideal if early session open drives into 6,890-6,900 and sellers defend. If 8:30 AM economic data is bearish, this setup gains conviction. BABA/INTU earnings reactions adding risk-off pressure would further validate
+          </div>
+          <div class="setup-invalidated">
+            <span class="setup-label" style="color:#ff4d6d">INVALIDATED</span> 5-minute close above 6,905 or a sustained reclaim of VWAP with buyers stepping in above 6,900
+          </div>
+          <div class="setup-rationale">ES is in a clear downtrend day, gapping down nearly 1% with VIX rising almost 4%. The overnight low at 6,870.75 is the last structural support before the prior week low at 6,828.50. A failure to reclaim the psychologically important 6,900 round number and PDL would indicate continuation selling. Multiple pre-market earnings (BABA, INTU) create additional uncertainty that could fuel risk-off positioning.</div>
+        </div>
+        <div class="setup-card" style="border-color:#00d4a020;background:rgba(0,212,160,0.08)">
+          <div class="setup-header">
+            <div class="setup-instrument">YM</div>
+            <div class="setup-bias" style="color:#00d4a0;border-color:#00d4a040;background:#00d4a015">LONG</div>
+            <div class="setup-type-badge">VWAP Reclaim / Mean Reversion</div>
+            <div class="setup-conf" style="color:#ffd166">● MEDIUM</div>
+          </div>
+
+          <div class="setup-trigger">
+            <span class="setup-label">TRIGGER</span>
+            <span class="setup-value">YM holds above PDL 49,124 and reclaims 49,247 (current) to 49,300 round number on a 5-minute close, indicating buyers defending the lower range</span>
+          </div>
+
+          <div class="setup-levels">
+            <div class="level-box level-target">
+              <div class="level-label">T1</div>
+              <div class="level-price">49,420.00</div>
+              <div class="level-pts" style="color:#00d4a0">+120.0 pts</div>
+              <div class="level-rr">1:0.6</div>
+            </div>
+            <div class="level-box level-target">
+              <div class="level-label">T2</div>
+              <div class="level-price">49,534.00</div>
+              <div class="level-pts" style="color:#00d4a0">+234.0 pts</div>
+              <div class="level-rr">1:1.1</div>
+            </div>
+            <div class="level-box level-stop">
+              <div class="level-label">STOP</div>
+              <div class="level-price">49,095.00</div>
+              <div class="level-pts" style="color:#ff4d6d">-205.0 pts</div>
+              <div class="level-rr">risk</div>
+            </div>
+          </div>
+
+          <div class="setup-condition">
+            <span class="setup-label">CONDITION</span> YM must hold PDL 49,124 and print a 5-min close above 49,300 round number with developing VWAP reclaimed. ES must also show stabilization above 6,870.75. If 8:30 AM data prints in-line or soft, mean reversion setup gains validity as sellers may have overextended overnight
+          </div>
+          <div class="setup-invalidated">
+            <span class="setup-label" style="color:#ff4d6d">INVALIDATED</span> 5-minute close below 49,095 or a break below PDL 49,124 with follow-through selling
+          </div>
+          <div class="setup-rationale">YM is down only 0.58% vs ES at -0.98%, showing relative strength. It is holding well above its overnight low of 49,205 and near PDL at 49,124 which was tested and held. The prior week low at 48,775 is well below, giving room for a bounce. The 49,300 round number is nearby resistance — a reclaim would target the gap fill toward the prior close at 49,534.</div>
+        </div>
+        <div class="setup-card" style="border-color:#ff4d6d20;background:rgba(255,77,109,0.08)">
+          <div class="setup-header">
+            <div class="setup-instrument">YM</div>
+            <div class="setup-bias" style="color:#ff4d6d;border-color:#ff4d6d40;background:#ff4d6d15">SHORT</div>
+            <div class="setup-type-badge">Breakdown of Key Level</div>
+            <div class="setup-conf" style="color:#ffd166">● MEDIUM</div>
+          </div>
+
+          <div class="setup-trigger">
+            <span class="setup-label">TRIGGER</span>
+            <span class="setup-value">YM breaks below overnight low 49,205 and then loses PDL 49,124 on a 5-minute close, confirming structural breakdown below the prior day's range</span>
+          </div>
+
+          <div class="setup-levels">
+            <div class="level-box level-target">
+              <div class="level-label">T1</div>
+              <div class="level-price">48,950.00</div>
+              <div class="level-pts" style="color:#00d4a0">+174.0 pts</div>
+              <div class="level-rr">1:0.9</div>
+            </div>
+            <div class="level-box level-target">
+              <div class="level-label">T2</div>
+              <div class="level-price">48,775.00</div>
+              <div class="level-pts" style="color:#00d4a0">+349.0 pts</div>
+              <div class="level-rr">1:1.9</div>
+            </div>
+            <div class="level-box level-stop">
+              <div class="level-label">STOP</div>
+              <div class="level-price">49,310.00</div>
+              <div class="level-pts" style="color:#ff4d6d">-186.0 pts</div>
+              <div class="level-rr">risk</div>
+            </div>
+          </div>
+
+          <div class="setup-condition">
+            <span class="setup-label">CONDITION</span> YM must break and close below 49,124 PDL on a 5-min candle with ES confirming weakness below 6,870.75. Ideally the open rallies into 49,250-49,300 zone, gets rejected at developing VWAP or 49,300 round number, and then sells through the ONL/PDL cluster. Bearish 8:30 AM economic data would accelerate this setup
+          </div>
+          <div class="setup-invalidated">
+            <span class="setup-label" style="color:#ff4d6d">INVALIDATED</span> 5-minute close back above 49,310 or a reclaim of 49,300 round number with strong buying volume
+          </div>
+          <div class="setup-rationale">YM is sitting in a precarious zone between overnight low 49,205 and PDL 49,124, with both acting as a support shelf. A clean break below this cluster opens the door to the prior week low at 48,775, a 349-point move. VIX expansion and the heavy earnings calendar (BABA, INTU, Canadian banks) add downside risk. The relatively modest decline in YM vs ES suggests it may have catching down to do if broad risk-off intensifies.</div>
+        </div></div>
 
   <!-- EARNINGS TABLE -->
   <div class="section-title">Today's Earnings</div>
   <div class="table-panel">
     <table>
-      <thead>
-        <tr>
-          <th>Symbol</th><th>Company</th><th>Time</th>
-          <th>EPS Est</th><th>EPS Actual</th><th>Surprise</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Symbol</th><th>Company</th><th>Time</th><th>EPS Est</th><th>EPS Actual</th><th>Surprise</th></tr></thead>
       <tbody>
         <tr>
             <td class="symbol">BABA</td>
@@ -531,12 +727,7 @@
   <div class="section-title">Economic Calendar</div>
   <div class="table-panel">
     <table>
-      <thead>
-        <tr>
-          <th>Time</th><th>Event</th><th>Impact</th>
-          <th>Forecast</th><th>Actual</th><th>Previous</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Time</th><th>Event</th><th>Impact</th><th>Forecast</th><th>Actual</th><th>Previous</th></tr></thead>
       <tbody>
         <tr>
             <td>8:30 AM ET</td>
