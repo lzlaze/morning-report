@@ -1,0 +1,30 @@
+name: Afternoon Futures Recap
+
+on:
+  schedule:
+    - cron: '0 21 * * 1-5'  # 4:00 PM EST (UTC-5) Mon-Fri
+    # NOTE: During EDT (Mar-Nov), change to '0 20 * * 1-5' for 4PM EDT
+  workflow_dispatch:
+
+jobs:
+  generate-recap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate and send recap
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+        run: python afternoon_recap.py
